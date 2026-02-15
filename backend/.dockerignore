@@ -1,0 +1,68 @@
+# Python cache files
+__pycache__/
+*.pyc
+*.py[cod]
+*$py.class
+*.so
+
+# Virtual environments
+venv/
+env/
+.env/
+.venv/
+
+# Environment files (keep .env for template)
+.env.local
+.env.production
+.env.development
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Docker files
+Dockerfile
+.dockerignore
+docker-compose.yml
+docker-compose.*.yml
+
+# IDE/Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Documentation
+README.md
+*.md
+docs/
+
+# Test files
+tests/
+test_*.py
+*_test.py
+
+# Logs (will be created in container)
+logs/
+*.log
+
+# Development tools
+.pytest_cache/
+.coverage
+.tox/
+.mypy_cache/
+.pylintrc
+
+# Node.js (if any frontend assets)
+node_modules/
+npm-debug.log*
+
+# Temporary files
+*.tmp
+*.temp

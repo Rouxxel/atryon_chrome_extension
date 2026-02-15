@@ -1,0 +1,55 @@
+version: "3.9"
+
+services:
+  api:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    container_name: atryon_backend
+    env_file: .env
+    ports:
+      - "${SERVER_PORT:-8000}:8000"
+    restart: unless-stopped
+    volumes:
+      - ./logs:/app/logs  # Persist logs
+    environment:
+      - PYTHONUNBUFFERED=1
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    # Uncomment below for development with live reload
+    # volumes:
+    #   - .:/app
+    # command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+
+  # Optional services - uncomment as needed
+  
+  # redis:
+  #   image: redis:7-alpine
+  #   container_name: atryon_redis
+  #   ports:
+  #     - "6379:6379"
+  #   restart: unless-stopped
+  #   volumes:
+  #     - redis_data:/data
+  #   command: redis-server --appendonly yes
+
+  # postgres:
+  #   image: postgres:15-alpine
+  #   container_name: atryon_postgres
+  #   environment:
+  #     POSTGRES_DB: ${POSTGRES_DB:-api_db}
+  #     POSTGRES_USER: ${POSTGRES_USER:-api_user}
+  #     POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-api_password}
+  #   ports:
+  #     - "5432:5432"
+  #   restart: unless-stopped
+  #   volumes:
+  #     - postgres_data:/var/lib/postgresql/data
+
+# volumes:
+#   redis_data:
+#   postgres_data:
