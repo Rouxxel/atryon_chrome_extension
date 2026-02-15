@@ -1,0 +1,55 @@
+[MASTER]
+ignore=venv,migrations
+jobs=4
+persistent=no
+
+[MESSAGES CONTROL]
+disable=
+    missing-module-docstring,
+    missing-class-docstring,
+    missing-function-docstring,
+    too-few-public-methods,
+    too-many-arguments,
+    duplicate-code,
+    redefined-outer-name,
+    import-error,
+    no-name-in-module,
+    logging-fstring-interpolation,
+    no-member,  
+
+[REPORTS]
+output-format=colorized
+reports=no
+score=yes
+
+[FORMAT]
+max-line-length=100
+indent-string='    '
+ignore-long-lines=^\s*(# )?<?https?://\S+>?$
+
+[BASIC]
+good-names=i,j,k,ex,Run,_,id
+bad-names=foo,bar,baz
+docstring-min-length=10
+
+[TYPECHECK]
+ignored-modules=uvicorn,fastapi,starlette
+generated-members=request.*,response.*
+
+[LOGGING]
+logging-modules=logging
+
+[DESIGN]
+max-args=6
+max-locals=20
+max-returns=6
+max-branches=12
+max-statements=50
+
+[IMPORTS]
+known-third-party=fastapi,uvicorn,google,slowapi
+known-standard-library=sys,os,typing,logging,json
+
+[VARIABLES]
+dummy-variables-rgx=^(_|unused_.*|dummy)$
+init-import=no

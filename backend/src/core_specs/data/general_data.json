@@ -1,0 +1,18 @@
+{
+    "metadata": {
+        "maintainer": "Sebastian Russo"
+    },
+    "languages": ["en","es","fr","de"],
+    "image_ai_providers": {
+        "black_forest": {
+            "flux-pro-1.0-fill-finetuned": "flux-pro-1.0-fill-finetuned",
+            "flux-pro-1.0-expand": "flux-pro-1.0-expand",
+            "flux-pro-1.0-fill": "flux-pro-1.0-fill",
+            "flux-2-pro": "flux-2-pro",
+            "flux-2-max": "flux-2-max",
+            "flux-2-flex": "flux-2-flex",
+            "flux-2-klein-4b": "flux-2-klein-4b",
+            "flux-2-klein-9b": "flux-2-klein-9b"
+        }
+    }
+}
