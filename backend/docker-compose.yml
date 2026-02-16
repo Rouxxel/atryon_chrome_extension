@@ -6,7 +6,7 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: atryon_backend
-    env_file: .env
+    env_file: .env   # Create from .env.example and set BFL_API_KEY etc.
     ports:
       - "${SERVER_PORT:-8000}:8000"
     restart: unless-stopped
