@@ -52,9 +52,9 @@ def normalize_reference_images(images: List[str]) -> List[str]:
     :return: List of image identifiers (URLs or base64 strings).
     :raises HTTPException: If image count is out of range.
     """
-    bf = data_loader.get("image_ai_providers", {}).get("black_forest", {})
-    min_n = bf.get("min_input_images", 2)
-    max_n = bf.get("max_input_images", 4)
+    flux2 = data_loader.get("image_ai_providers", {}).get("black_forest", {}).get("flux2", {})
+    min_n = flux2.get("min_input_images", 2)
+    max_n = flux2.get("max_input_images", 4)
 
     if len(images) < min_n or len(images) > max_n:
         raise HTTPException(
