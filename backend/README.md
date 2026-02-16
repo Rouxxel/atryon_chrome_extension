@@ -10,6 +10,11 @@ Backend for the Atryon Chrome extension. FastAPI API with rate limiting, logging
 - **Docker**: multi-stage Dockerfile, docker-compose, non-root user, health check
 - **Start scripts**: `start.bat` (Windows) and `start.sh` (Linux/macOS) for venv, deps, and run modes
 
+## API documentations
+- https://docs.bfl.ai/flux_2/flux2_image_editing
+- https://docs.bfl.ai/flux_2/flux2_text_to_image
+- https://docs.bfl.ai/flux_tools/flux_1_fill
+
 ## Project structure
 
 ```
