@@ -30,12 +30,41 @@
             "endpoint_tag": "root",
             "endpoint_route": "/"
         },
-        "example_endpoint": {
-            "request_limit": 3,
+
+        "mic_endpoint": {
+            "request_limit": 4,
             "unit_of_time_for_limit": "m",
-            "endpoint_prefix": "/example",
-            "endpoint_tag": "example",
-            "endpoint_route": "/example"
+            "endpoint_prefix": "/ai_gen_edit",
+            "endpoint_tag": "ai_gen_edit",
+            "endpoint_route": "/mic"
+        },
+        "idwm_endpoint": {
+            "request_limit": 4,
+            "unit_of_time_for_limit": "m",
+            "endpoint_prefix": "/ai_gen_edit",
+            "endpoint_tag": "ai_gen_edit",
+            "endpoint_route": "/idwm"
+        },
+        "tti_endpoint": {
+            "request_limit": 4,
+            "unit_of_time_for_limit": "m",
+            "endpoint_prefix": "/ai_gen_edit",
+            "endpoint_tag": "ai_gen_edit",
+            "endpoint_route": "/tti"
+        },
+        "polling_requests_endpoint": {
+            "request_limit": 30,
+            "unit_of_time_for_limit": "m",
+            "endpoint_prefix": "/ai_gen_edit",
+            "endpoint_tag": "ai_gen_edit",
+            "endpoint_route": "/polling_requests"
+        },
+        "download_requests_endpoint": {
+            "request_limit": 30,
+            "unit_of_time_for_limit": "m",
+            "endpoint_prefix": "/ai_gen_edit",
+            "endpoint_tag": "ai_gen_edit",
+            "endpoint_route": "/download_requests"
         }
     }
 }
