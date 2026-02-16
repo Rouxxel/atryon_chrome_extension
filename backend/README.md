@@ -1,260 +1,130 @@
-# REST API Template
+# Atryon Backend
 
-A production-ready FastAPI template for building scalable REST APIs with Docker support, rate limiting, logging, and security features.
+Backend for the Atryon Chrome extension. FastAPI API with rate limiting, logging, and **Black Forest Labs (BFL)** integration for FLUX image generation: text-to-image (TTI), multi-image composition (MIC), and image edit with mask (IDWM / FLUX.1 Fill).
 
-## 🚀 Features
+## Features
 
-- **FastAPI Framework**: Modern, fast web framework for building APIs
-- **Docker Support**: Multi-stage Dockerfile and docker-compose for easy deployment
-- **Rate Limiting**: Built-in request rate limiting with SlowAPI
-- **Logging**: Comprehensive logging system with file and console output
-- **Security**: Non-root user in Docker, input validation, encryption utilities
-- **Configuration**: JSON-based configuration management
-- **Health Checks**: Built-in health check endpoints
-- **Development Ready**: Hot reload support for development
+- **FastAPI** with Uvicorn
+- **Black Forest API**: FLUX.2 (TTI, MIC) and FLUX.1 Fill (inpainting) via configurable endpoints
+- **Rate limiting** (SlowAPI), **logging** (file + console), **JSON config** (`config_file.json` + `general_data.json`)
+- **Docker**: multi-stage Dockerfile, docker-compose, non-root user, health check
+- **Start scripts**: `start.bat` (Windows) and `start.sh` (Linux/macOS) for venv, deps, and run modes
 
-## 📁 Project Structure
+## Project structure
 
 ```
-rest_api_template/
+backend/
 ├── src/
-│   ├── api_endpoints/          # API route definitions
-│   │   ├── routers/           # Additional router modules
-│   │   └── root_endpoint.py   # Root/health check endpoint
-│   ├── core_specs/            # Core configuration and data
-│   │   ├── configuration/     # JSON config files and loaders
-│   │   └── data/             # Data files and loaders
-│   └── utils/                # Utility modules
-│       ├── custom_logger.py  # Logging configuration
-│       ├── limiter.py        # Rate limiting setup
-│       ├── validators.py     # Input validation utilities
-│       ├── en_de_crypt.py    # Encryption/decryption utilities
-│       └── request_limiter.py # Rate limit handlers
-├── logs/                     # Log files (created automatically)
-├── main.py                   # Application entry point
-├── requirements.txt          # Python dependencies
-├── DOCKERFILE               # Docker build configuration
-├── docker-compose.yml       # Docker compose configuration
-├── .env                     # Environment variables template
-├── .dockerignore           # Docker ignore file
-└── README.md               # This file
+│   ├── api_endpoints/
+│   │   ├── root_endpoint.py           # Health check /
+│   │   └── routers/
+│   │       └── black_forest_api/      # BFL FLUX endpoints
+│   │           ├── submit_mic.py      # POST /ai_gen_edit/mic
+│   │           ├── submit_tti.py      # POST /ai_gen_edit/tti
+│   │           ├── submit_idwm.py     # POST /ai_gen_edit/idwm
+│   │           ├── polling_requests.py
+│   │           └── download_requests.py
+│   ├── core_specs/
+│   │   ├── configuration/             # config_file.json, config_loader
+│   │   └── data/                      # general_data.json, data_loader
+│   └── utils/
+├── logs/                              # Created at runtime
+├── main.py
+├── requirements.txt
+├── Dockerfile
+├── docker-compose.yml
+├── .dockerignore
+├── .env.example                       # Copy to .env and .env.local
+├── start.bat                          # Windows quick start
+├── start.sh                           # Linux/macOS quick start
+└── README.md
 ```
 
-## 🛠️ Quick Start
+## Quick start
 
-### Option 1: Run with Python (Development)
+### 1. Environment
 
-1. **Clone and setup**:
-   ```bash
-   cd templates/rest_api_template
-   python -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
-   pip install -r requirements.txt
-   ```
-
-2. **Configure environment**:
-   ```bash
-   cp .env .env.local
-   # Edit .env.local with your configuration
-   ```
-
-3. **Run the application**:
-   ```bash
-   python main.py
-   ```
-
-4. **Access the API**:
-   - API: http://localhost:8000
-   - Documentation: http://localhost:8000/docs
-   - Alternative docs: http://localhost:8000/redoc
-
-### Option 2: Run with Docker (Production)
-
-1. **Build and run with Docker Compose**:
-   ```bash
-   cd templates/rest_api_template
-   docker-compose up --build
-   ```
-
-2. **Or build and run manually**:
-   ```bash
-   docker build -t rest-api-template .
-   docker run -p 8000:8000 --env-file .env rest-api-template
-   ```
-
-## 🔧 Configuration
-
-### Environment Variables (.env)
+From the `backend/` directory:
 
 ```bash
-# Server Configuration
-SERVER_PORT=8000
-HOST=0.0.0.0
-RELOAD=false
-WORKERS=1
-
-# Security Keys
-E_PRIVATE_KEY=your_private_key_here
-E_PRIVATE_PASSWORD=your_private_password_here
-E_PUBLIC_KEY=your_public_key_here
-
-# Logging
-LOG_LEVEL=info
+cp .env.example .env
+cp .env.example .env.local
 ```
 
-### JSON Configuration (src/core_specs/configuration/config_file.json)
+Edit `.env` and `.env.local`: set **`BFL_API_KEY`** (and optionally `BFL_BASE_URL`) for Black Forest endpoints. Other keys (e.g. encryption, DB) are used if you enable those features.
 
-The template uses JSON-based configuration for:
-- Network settings (host, port, workers)
-- Endpoint configurations (rate limits, routes)
-- Logging settings
-- Email validation rules
+### 2. Run with start scripts
 
-## 📝 Adding New Endpoints
+**Windows (PowerShell or CMD):**
 
-1. **Create a new router file** in `src/api_endpoints/routers/`:
-   ```python
-   from fastapi import APIRouter, Request
-   from src.utils.limiter import limiter
-   from src.core_specs.configuration.config_loader import config_loader
-   
-   router = APIRouter(prefix="/api/v1", tags=["your_tag"])
-   
-   @router.get("/your-endpoint")
-   @limiter.limit("10/minute")
-   async def your_endpoint(request: Request):
-       return {"message": "Your endpoint response"}
-   ```
+```cmd
+start.bat
+```
 
-2. **Register the router** in `main.py`:
-   ```python
-   from src.api_endpoints.routers.your_router import router as your_router
-   app.include_router(your_router)
-   ```
+**Linux/macOS:**
 
-3. **Update configuration** in `config_file.json` if needed.
-
-## 🔒 Security Features
-
-- **Rate Limiting**: Configurable per-endpoint rate limiting
-- **Input Validation**: Pydantic models for request validation
-- **Encryption**: Built-in encryption/decryption utilities
-- **Non-root Docker**: Container runs as non-root user
-- **Environment Variables**: Sensitive data via environment variables
-
-## 📊 Logging
-
-The template includes comprehensive logging:
-- **File Logging**: Timestamped log files in `logs/` directory
-- **Console Logging**: Structured output for containers
-- **Configurable Levels**: Debug, Info, Warning, Error, Critical
-- **Request Logging**: Automatic API request logging
-
-## 🐳 Docker Features
-
-### Multi-stage Build
-- **Builder stage**: Installs dependencies
-- **Production stage**: Minimal runtime image
-- **Security**: Non-root user execution
-- **Health checks**: Built-in container health monitoring
-
-### Docker Compose
-- **Development**: Hot reload support (commented)
-- **Production**: Optimized for deployment
-- **Services**: Ready for Redis, PostgreSQL integration
-- **Volumes**: Persistent log storage
-
-## 🧪 Development
-
-### Hot Reload Development
 ```bash
-# Enable hot reload in docker-compose.yml
+chmod +x start.sh
+./start.sh
+```
+
+The script will create `venv` if needed, install dependencies, create `.env`/`.env.local` from `.env.example` if missing, then prompt:
+
+1. **Development** – Uvicorn with `--reload`
+2. **Production** – `python main.py`
+3. **Docker** – `docker-compose up --build`
+
+### 3. Run with Docker only
+
+```bash
+cd backend
+cp .env.example .env
+# Edit .env and set BFL_API_KEY (required for BFL endpoints)
 docker-compose up --build
 ```
 
-### Adding Dependencies
-```bash
-pip install new-package
-pip freeze > requirements.txt
-```
+- API: **http://localhost:8000**
+- Docs: **http://localhost:8000/docs**
+- ReDoc: **http://localhost:8000/redoc**
 
-### Running Tests
-```bash
-# Add your test framework
-pip install pytest
-pytest tests/
-```
+Port can be overridden with `SERVER_PORT` in `.env` (e.g. `SERVER_PORT=8080`).
 
-## 🚀 Deployment
+## API overview
 
-### Production Deployment
-1. **Update environment variables** for production
-2. **Build production image**:
-   ```bash
-   docker build -t your-api:latest .
-   ```
-3. **Deploy with docker-compose**:
-   ```bash
-   docker-compose -f docker-compose.yml up -d
-   ```
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/` | Health check |
+| POST | `/ai_gen_edit/mic` | Multi-image composition (FLUX.2); body: `prompt`, `images[]` |
+| POST | `/ai_gen_edit/tti` | Text-to-image (FLUX.2); body: `prompt`, optional `width`, `height` |
+| POST | `/ai_gen_edit/idwm` | Image edit with mask (FLUX.1 Fill); body: `prompt`, `image`, optional `mask` |
+| GET | `/ai_gen_edit/polling_requests?polling_url=...` | Poll BFL task; response includes `result.sample` (image URL) |
+| GET | `/ai_gen_edit/download_requests?url=...` | Download image from signed URL |
 
-### Cloud Deployment
-The template is ready for deployment on:
-- **AWS ECS/Fargate**
-- **Google Cloud Run**
-- **Azure Container Instances**
-- **Heroku**
-- **DigitalOcean App Platform**
+Flow: **submit** → **poll** until `status == "Ready"` → use **`result['sample']`** or **download** endpoint to get the image.
 
-## 📚 API Documentation
+## Configuration
 
-Once running, access interactive API documentation:
-- **Swagger UI**: http://localhost:8000/docs
-- **ReDoc**: http://localhost:8000/redoc
+- **`src/core_specs/configuration/config_file.json`** – Backend config: endpoints, rate limits, logging, network.
+- **`src/core_specs/data/general_data.json`** – Data and provider config: BFL `flux2` and `flux1_fill` (models, defaults, prompt prefixes).
 
-## 🔧 Customization
+Environment (`.env` / `.env.local`):
 
-### Changing the API Title/Description
-Update in `main.py`:
-```python
-app = FastAPI(
-    title="Your API Name",
-    description="Your API Description",
-    version="1.0.0"
-)
-```
+- **`BFL_API_KEY`** – Required for all BFL endpoints.
+- **`BFL_BASE_URL`** – Optional; default `https://api.bfl.ai/v1`.
 
-### Adding Database Support
-1. Uncomment database service in `docker-compose.yml`
-2. Add database dependencies to `requirements.txt`
-3. Create database connection utilities in `src/utils/`
+## Docker
 
-### Adding Authentication
-1. Install authentication dependencies
-2. Create auth utilities in `src/utils/`
-3. Add authentication middleware to `main.py`
+- **Dockerfile**: Multi-stage, Python 3.12-slim, non-root user, health check on `GET /`.
+- **docker-compose**: Builds and runs the API; uses `.env`; mounts `./logs` for persistence.
+- Create **`.env`** from **`.env.example`** and set **`BFL_API_KEY`** before `docker-compose up`.
 
-## 📋 Requirements
+Optional services (Redis, Postgres) are commented in `docker-compose.yml`; uncomment and set env vars if needed.
+
+## Requirements
 
 - Python 3.12+
-- Docker (optional)
-- Docker Compose (optional)
+- Docker & Docker Compose (optional)
 
-## 🤝 Contributing
+## License
 
-This is a template - customize it for your specific needs:
-1. Update configuration files
-2. Add your business logic
-3. Implement your endpoints
-4. Add tests
-5. Update documentation
-
-## 📄 License
-
-This template is provided as-is for educational and development purposes.
-
----
-
-**Ready to build your REST API!** 🚀
-
-Start by customizing the configuration files and adding your endpoints in the `src/api_endpoints/` directory.
+For use with the Atryon Chrome extension project.
