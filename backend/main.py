@@ -33,6 +33,7 @@ from src.core_specs.data.data_loader import data_loader
 
 #Endpoints imports
 from src.api_endpoints.root_endpoint import router as root_router
+from src.api_endpoints.routers.black_forest_api import router as black_forest_router
 
 """API APP-----------------------------------------------------------"""
 #Lifespan event manager (startup and shutdown)
@@ -61,6 +62,8 @@ app.add_exception_handler(RateLimitExceeded, rate_limit_handler)
 """Routers-----------------------------------------------------------"""
 #Root
 app.include_router(root_router)
+# Black Forest API (multi-image composition)
+app.include_router(black_forest_router)
 
 #Others
 
