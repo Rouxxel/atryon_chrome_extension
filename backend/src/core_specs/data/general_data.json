@@ -5,14 +5,31 @@
     "languages": ["en","es","fr","de"],
     "image_ai_providers": {
         "black_forest": {
-            "flux-pro-1.0-fill-finetuned": "flux-pro-1.0-fill-finetuned",
-            "flux-pro-1.0-expand": "flux-pro-1.0-expand",
-            "flux-pro-1.0-fill": "flux-pro-1.0-fill",
-            "flux-2-pro": "flux-2-pro",
-            "flux-2-max": "flux-2-max",
-            "flux-2-flex": "flux-2-flex",
-            "flux-2-klein-4b": "flux-2-klein-4b",
-            "flux-2-klein-9b": "flux-2-klein-9b"
+            "base_url_env": "BFL_BASE_URL",
+            "base_url_default": "https://api.bfl.ai/v1",
+            "api_key_env": "BFL_API_KEY",
+            "model_name": "flux-2-klein-4b",
+            "width": 1024,
+            "height": 1024,
+            "dimensions": {
+                "width": 1024,
+                "height": 1024
+            },
+            "safety_tolerance": 2,
+            "output_format": "jpeg",
+            "max_input_images": 4,
+            "min_input_images": 2,
+            "default_prompt_prefix": "Multi-image composition: describe how to combine the images (e.g. which image is subject, which is background). Keep prompts clear and focused. ",
+            "models": {
+                "flux-pro-1.0-fill-finetuned": "flux-pro-1.0-fill-finetuned",
+                "flux-pro-1.0-expand": "flux-pro-1.0-expand",
+                "flux-pro-1.0-fill": "flux-pro-1.0-fill",
+                "flux-2-pro": "flux-2-pro",
+                "flux-2-max": "flux-2-max",
+                "flux-2-flex": "flux-2-flex",
+                "flux-2-klein-4b": "flux-2-klein-4b",
+                "flux-2-klein-9b": "flux-2-klein-9b"
+            }
         }
     }
 }
