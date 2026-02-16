@@ -30,10 +30,18 @@ REM Install dependencies
 echo 📥 Installing dependencies...
 pip install -r requirements.txt
 
-REM Check if .env.local exists, if not copy from .env
+REM Ensure .env exists (for Docker); create from .env.example if missing
+if not exist ".env" (
+    if exist ".env.example" (
+        echo ⚙️  Creating .env from .env.example...
+        copy .env.example .env
+        echo ✅ .env created - set BFL_API_KEY and other secrets before Docker
+    )
+)
+REM Check if .env.local exists, if not copy from .env or .env.example
 if not exist ".env.local" (
     echo ⚙️  Creating .env.local from template...
-    copy .env .env.local
+    if exist ".env" (copy .env .env.local) else (copy .env.example .env.local)
     echo ✅ .env.local created - please update with your configuration
 )
 

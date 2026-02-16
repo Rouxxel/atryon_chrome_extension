@@ -28,10 +28,16 @@ source venv/bin/activate
 echo "📥 Installing dependencies..."
 pip install -r requirements.txt
 
-# Check if .env.local exists, if not copy from .env
+# Ensure .env exists (for Docker); create from .env.example if missing
+if [ ! -f ".env" ] && [ -f ".env.example" ]; then
+    echo "⚙️  Creating .env from .env.example..."
+    cp .env.example .env
+    echo "✅ .env created - set BFL_API_KEY and other secrets before Docker"
+fi
+# Check if .env.local exists, if not copy from .env or .env.example
 if [ ! -f ".env.local" ]; then
     echo "⚙️  Creating .env.local from template..."
-    cp .env .env.local
+    if [ -f ".env" ]; then cp .env .env.local; else cp .env.example .env.local; fi
     echo "✅ .env.local created - please update with your configuration"
 fi
 
