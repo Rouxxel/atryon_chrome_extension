@@ -19,11 +19,9 @@ from .submit_tti import router as submit_tti_router
 from .submit_idwm import router as submit_idwm_router
 from .polling_requests import router as polling_router
 from .download_requests import router as download_router
-from .upload_images import router as upload_images_router
 
 """ROUTER AGGREGATION-----------------------------------------------------------"""
 router = APIRouter()
-router.include_router(upload_images_router)
 router.include_router(submit_mic_router)
 router.include_router(submit_tti_router)
 router.include_router(submit_idwm_router)

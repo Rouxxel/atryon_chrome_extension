@@ -23,6 +23,8 @@ backend/
 │   ├── api_endpoints/
 │   │   ├── root_endpoint.py           # Health check /
 │   │   └── routers/
+│   │       ├── upload_files/          # Reusable file upload (MIC, IDWM, etc.)
+│   │       │   └── upload_images.py   # POST /upload/images
 │   │       └── black_forest_api/      # BFL FLUX endpoints
 │   │           ├── submit_mic.py      # POST /ai_gen_edit/mic
 │   │           ├── submit_tti.py      # POST /ai_gen_edit/tti
@@ -99,6 +101,7 @@ Port can be overridden with `SERVER_PORT` in `.env` (e.g. `SERVER_PORT=8080`).
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | `/` | Health check |
+| POST | `/upload/images` | Upload one or more images; returns `upload_ids` for use as `upload:<id>` in MIC/IDWM |
 | POST | `/ai_gen_edit/mic` | Multi-image composition (FLUX.2); body: `prompt`, `images[]` |
 | POST | `/ai_gen_edit/tti` | Text-to-image (FLUX.2); body: `prompt`, optional `width`, `height` |
 | POST | `/ai_gen_edit/idwm` | Image edit with mask (FLUX.1 Fill); body: `prompt`, `image`, optional `mask` |
@@ -110,7 +113,7 @@ Flow: **submit** → **poll** until `status == "Ready"` → use **`result['sampl
 ## Configuration
 
 - **`src/core_specs/configuration/config_file.json`** – Backend config: endpoints, rate limits, logging, network.
-- **`src/core_specs/data/general_data.json`** – Data and provider config: BFL `flux2` and `flux1_fill` (models, defaults, prompt prefixes).
+- **`src/core_specs/data/general_data.json`** – Data and provider config: `file_upload` (limits, TTL), BFL `flux2` and `flux1_fill` (models, defaults, prompt prefixes).
 
 Environment (`.env` / `.env.local`):
 

@@ -22,8 +22,8 @@ from src.core_specs.configuration.config_loader import config_loader
 from src.core_specs.data.data_loader import data_loader
 
 """VARIABLES-----------------------------------------------------------"""
-BF_CFG = data_loader.get("image_ai_providers", {}).get("black_forest", {})
-UPLOAD_TTL = BF_CFG.get("upload_temp_ttl_seconds", 600)
+FILE_UPLOAD_CFG = data_loader.get("file_upload", {})
+UPLOAD_TTL = FILE_UPLOAD_CFG.get("upload_temp_ttl_seconds", 600)
 
 """API ROUTER-----------------------------------------------------------"""
 router = APIRouter(

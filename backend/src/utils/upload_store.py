@@ -27,9 +27,9 @@ from fastapi import HTTPException
 
 UPLOAD_PREFIX = "upload:"
 
-# Config from general_data (black_forest)
+# Config from general_data (file_upload)
 def _upload_config():
-    return data_loader.get("image_ai_providers", {}).get("black_forest", {})
+    return data_loader.get("file_upload", {})
 
 
 def _temp_dir() -> Path:
