@@ -7,8 +7,6 @@ A Chrome extension for trying on pieces of clothing. The project includes a **ba
 | Path | Description |
 |------|-------------|
 | **`backend/`** | FastAPI backend: BFL FLUX endpoints, rate limiting, logging, Docker. See [backend/README.md](backend/README.md) for setup and API details. |
-| **`prompt_guide_image.md`** | Prompt guidelines for BFL image generation (TTI, inpainting, multi-image). |
-| **`flux2_*.py`, `flux1_*.py`** | Reference/test scripts for BFL FLUX.2 and FLUX.1 Fill APIs. |
 
 ## Quick start
 
