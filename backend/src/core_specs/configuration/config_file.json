@@ -42,36 +42,36 @@
         "mic_endpoint": {
             "request_limit": 6,
             "unit_of_time_for_limit": "m",
-            "endpoint_prefix": "/ai_gen_edit",
-            "endpoint_tag": "ai_gen_edit",
+            "endpoint_prefix": "/bf_fl",
+            "endpoint_tag": "bf_fl",
             "endpoint_route": "/mic"
         },
         "idwm_endpoint": {
             "request_limit": 6,
             "unit_of_time_for_limit": "m",
-            "endpoint_prefix": "/ai_gen_edit",
-            "endpoint_tag": "ai_gen_edit",
+            "endpoint_prefix": "/bf_fl",
+            "endpoint_tag": "bf_fl",
             "endpoint_route": "/idwm"
         },
         "tti_endpoint": {
             "request_limit": 6,
             "unit_of_time_for_limit": "m",
-            "endpoint_prefix": "/ai_gen_edit",
-            "endpoint_tag": "ai_gen_edit",
+            "endpoint_prefix": "/bf_fl",
+            "endpoint_tag": "bf_fl",
             "endpoint_route": "/tti"
         },
         "polling_requests_endpoint": {
             "request_limit": 30,
             "unit_of_time_for_limit": "m",
-            "endpoint_prefix": "/ai_gen_edit",
-            "endpoint_tag": "ai_gen_edit",
+            "endpoint_prefix": "/bf_fl",
+            "endpoint_tag": "bf_fl",
             "endpoint_route": "/polling_requests"
         },
         "download_requests_endpoint": {
             "request_limit": 30,
             "unit_of_time_for_limit": "m",
-            "endpoint_prefix": "/ai_gen_edit",
-            "endpoint_tag": "ai_gen_edit",
+            "endpoint_prefix": "/bf_fl",
+            "endpoint_tag": "bf_fl",
             "endpoint_route": "/download_requests"
         }
     }
