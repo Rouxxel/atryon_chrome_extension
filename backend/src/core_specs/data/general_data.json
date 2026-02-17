@@ -17,8 +17,8 @@
                 "output_format": "jpeg",
                 "max_input_images": 4,
                 "min_input_images": 2,
-                "default_prompt_prefix_mic": "Multi-image composition: describe how to combine the images (e.g. which image is subject, which is background). Keep prompts clear and focused. ",
-                "default_prompt_prefix_tti": "Text-to-image: include subject, scene, and style. Be specific; add quality cues (e.g. ultra-detailed, dramatic lighting). "
+                "default_prompt_prefix_mic": "Use the first image as the garment reference and the second image as the person reference.\n\nExtract only the clothing item from the first image.\nPreserve the clothing's exact color, texture, logos, seams, fabric pattern, and overall shape.\n\nPlace this clothing item onto the person in the second image so that the person is wearing it naturally.\nMatch the person's body pose, proportions, and camera angle exactly.\n\nDo not change the person's face, body, hairstyle, skin tone, facial expression, or identity.\nDo not change the background, lighting, or image style.\n\nThe clothing should fit realistically to the person's body and follow the contours of the torso and arms.\nHands, arms, hair, and accessories should appear naturally in front of or behind the clothing where appropriate.\n\nThe final result should look like a real photo of the same person wearing the same clothing item from the first image. Also, ",
+                "default_prompt_prefix_tti": "The following image should be ultra-realistic, everyday scene, authentic and raw, it should be as if it was taken with a phone camera by a normal person, Natural lighting, imperfect framing, slight perspective distortion and no studio lighting. Also, "
             },
             "flux1_fill": {
                 "default_model": "flux-pro-1.0-fill",
@@ -27,7 +27,7 @@
                 "guidance": 60,
                 "safety_tolerance": 2,
                 "output_format": "jpeg",
-                "default_prompt_prefix_idwm": "Image edit: describe what to add or change in the editable area. Include lighting and style to match the rest of the image. "
+                "default_prompt_prefix_idwm": "Edit the original image only within the white area of the mask image, the black area of the mask must remain completely unchanged. Seamlessly blend the edited region with the surrounding image, matching the original lighting, shadows, perspective, color and texture. Also, "
             }
         }
     }
