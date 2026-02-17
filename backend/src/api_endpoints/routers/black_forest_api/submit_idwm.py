@@ -27,6 +27,7 @@ from pydantic import BaseModel, Field
 from src.utils.custom_logger import log_handler
 from src.utils.limiter import limiter as SlowLimiter
 from src.utils.validators import is_url, validate_image_url_safe
+from src.utils.upload_store import is_upload_reference, extract_upload_id, resolve as resolve_upload
 from src.core_specs.configuration.config_loader import config_loader
 from src.core_specs.data.data_loader import data_loader
 
@@ -34,6 +35,8 @@ from src.core_specs.data.data_loader import data_loader
 #Black Forest provider data (base URL, API key; flux1_fill has its own model and params)
 BF_CFG = data_loader["image_ai_providers"]["black_forest"]
 FLUX1_FILL_CFG = BF_CFG.get("flux1_fill", {})
+MIN_DIMENSION = 512
+MAX_DIMENSION = 2048
 
 
 def _get_bfl_headers() -> dict:
@@ -54,11 +57,13 @@ def _build_full_prompt_fill(user_prompt: str) -> str:
 
 
 class SubmitIdwmBody(BaseModel):
-    """Request body: prompt, base image, and optional mask."""
+    """Request body: prompt, base image, optional mask, optional dimensions."""
 
     prompt: str = Field(..., min_length=1, description="What to add or change in the editable area")
     image: str = Field(..., min_length=1, description="Base image: URL or base64-encoded data")
     mask: Optional[str] = Field(None, description="Optional mask: URL or base64. Black=preserve, white=inpaint. Omit for alpha-channel mode.")
+    width: Optional[int] = Field(None, ge=MIN_DIMENSION, le=MAX_DIMENSION, description="Output width 512–2048")
+    height: Optional[int] = Field(None, ge=MIN_DIMENSION, le=MAX_DIMENSION, description="Output height 512–2048")
 
 
 """API ROUTER-----------------------------------------------------------"""
@@ -96,11 +101,21 @@ async def submit_idwm(request: Request, body: SubmitIdwmBody):
     """
     log_handler.debug("Submit IDWM (FLUX.1 Fill) request received")
 
-    #Validate image/mask URLs (SSRF) when provided as URLs
-    if is_url(body.image):
-        validate_image_url_safe(body.image)
-    if body.mask and body.mask.strip() and is_url(body.mask):
-        validate_image_url_safe(body.mask)
+    #Resolve upload:<id> to base64; validate URLs (SSRF)
+    image_value = body.image
+    if is_upload_reference(image_value):
+        image_value = resolve_upload(extract_upload_id(image_value))
+    elif is_url(image_value):
+        validate_image_url_safe(image_value)
+
+    mask_value = body.mask
+    if body.mask and body.mask.strip():
+        if is_upload_reference(body.mask):
+            mask_value = resolve_upload(extract_upload_id(body.mask))
+        elif is_url(body.mask):
+            validate_image_url_safe(body.mask)
+    else:
+        mask_value = None
 
     #Build full prompt with optional inpainting prefix from data config
     full_prompt = _build_full_prompt_fill(body.prompt)
@@ -111,15 +126,19 @@ async def submit_idwm(request: Request, body: SubmitIdwmBody):
     url = f"{base_url.rstrip('/')}/{model_name}"
 
     payload = {
-        "image": body.image,
+        "image": image_value,
         "prompt": full_prompt,
         "steps": FLUX1_FILL_CFG.get("steps", 50),
         "guidance": FLUX1_FILL_CFG.get("guidance", 60),
         "output_format": FLUX1_FILL_CFG.get("output_format", "jpeg"),
         "safety_tolerance": FLUX1_FILL_CFG.get("safety_tolerance", 2),
     }
-    if body.mask is not None and body.mask.strip():
-        payload["mask"] = body.mask
+    if mask_value is not None:
+        payload["mask"] = mask_value
+    if body.width is not None:
+        payload["width"] = body.width
+    if body.height is not None:
+        payload["height"] = body.height
 
     #Submit request to BFL (async)
     try:

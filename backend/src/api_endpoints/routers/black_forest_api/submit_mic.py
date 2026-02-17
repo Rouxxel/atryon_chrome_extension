@@ -14,6 +14,7 @@ to poll until the task is ready.
 
 #Native imports
 import os
+from typing import Optional
 
 #Third-party imports
 import httpx
@@ -30,6 +31,8 @@ from src.core_specs.data.data_loader import data_loader
 """VARIABLES-----------------------------------------------------------"""
 #Black Forest provider data (model, dimensions, prompt prefix, etc.)
 BF_CFG = data_loader["image_ai_providers"]["black_forest"]
+MIN_DIMENSION = 512
+MAX_DIMENSION = 2048
 
 
 def _get_bfl_headers() -> dict:
@@ -50,10 +53,12 @@ def _build_full_prompt(user_prompt: str) -> str:
 
 
 class SubmitMicBody(BaseModel):
-    """Request body: user prompt and list of image URLs or base64 strings."""
+    """Request body: user prompt, list of image URLs or base64 strings, optional dimensions."""
 
     prompt: str = Field(..., min_length=1, description="User prompt for multi-image composition")
     images: list[str] = Field(..., min_length=2, description="List of image URLs or base64-encoded image data")
+    width: Optional[int] = Field(None, ge=MIN_DIMENSION, le=MAX_DIMENSION, description="Output width 512–2048")
+    height: Optional[int] = Field(None, ge=MIN_DIMENSION, le=MAX_DIMENSION, description="Output height 512–2048")
 
 
 """API ROUTER-----------------------------------------------------------"""
@@ -100,14 +105,16 @@ async def submit_mic(request: Request, body: SubmitMicBody):
     base_url = os.getenv(BF_CFG["base_url_env"]) or BF_CFG["base_url_default"]
     model = flux2.get("default_model", "flux-2-klein-4b")
     url = f"{base_url.rstrip('/')}/{model}"
+    width = body.width if body.width is not None else flux2.get("width", 1024)
+    height = body.height if body.height is not None else flux2.get("height", 1024)
     payload = {
         "prompt": full_prompt,
         "input_image": normalized[0] if len(normalized) > 0 else None,
         "input_image_2": normalized[1] if len(normalized) > 1 else None,
         "input_image_3": normalized[2] if len(normalized) > 2 else None,
         "input_image_4": normalized[3] if len(normalized) > 3 else None,
-        "width": flux2.get("width", 1024),
-        "height": flux2.get("height", 1024),
+        "width": width,
+        "height": height,
         "safety_tolerance": flux2.get("safety_tolerance", 2),
         "output_format": flux2.get("output_format", "jpeg"),
     }
