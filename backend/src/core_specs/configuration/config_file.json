@@ -31,22 +31,30 @@
             "endpoint_route": "/"
         },
 
+        "upload_images_endpoint": {
+            "request_limit": 15,
+            "unit_of_time_for_limit": "m",
+            "endpoint_prefix": "/upload",
+            "endpoint_tag": "upload",
+            "endpoint_route": "/images"
+        },
+
         "mic_endpoint": {
-            "request_limit": 4,
+            "request_limit": 6,
             "unit_of_time_for_limit": "m",
             "endpoint_prefix": "/ai_gen_edit",
             "endpoint_tag": "ai_gen_edit",
             "endpoint_route": "/mic"
         },
         "idwm_endpoint": {
-            "request_limit": 4,
+            "request_limit": 6,
             "unit_of_time_for_limit": "m",
             "endpoint_prefix": "/ai_gen_edit",
             "endpoint_tag": "ai_gen_edit",
             "endpoint_route": "/idwm"
         },
         "tti_endpoint": {
-            "request_limit": 4,
+            "request_limit": 6,
             "unit_of_time_for_limit": "m",
             "endpoint_prefix": "/ai_gen_edit",
             "endpoint_tag": "ai_gen_edit",
