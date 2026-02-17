@@ -22,6 +22,10 @@ from src.utils.limiter import limiter as SlowLimiter
 from src.utils.validators import is_url
 from src.core_specs.configuration.config_loader import config_loader
 
+"""VARIABLES-----------------------------------------------------------"""
+# Signed blob URLs work without API key in browser; blob may block script-like User-Agents
+DOWNLOAD_HEADERS = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
+
 """API ROUTER-----------------------------------------------------------"""
 router = APIRouter(
     prefix=config_loader['endpoints']['download_requests_endpoint']['endpoint_prefix'],
@@ -62,9 +66,9 @@ async def download_requests(
 
     log_handler.debug("Downloading image from provided URL")
 
-    #Download image from signed URL
+    #Download image from signed URL (browser-like User-Agent so blob accepts the request)
     try:
-        resp = requests.get(url, timeout=60, stream=True)
+        resp = requests.get(url, headers=DOWNLOAD_HEADERS, timeout=60, stream=True)
     except requests.RequestException as e:
         log_handler.error(f"Image download failed: {e}")
         raise HTTPException(status_code=502, detail="Failed to fetch image from URL.")
