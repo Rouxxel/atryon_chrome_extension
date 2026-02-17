@@ -8,6 +8,8 @@
             "base_url_env": "BFL_BASE_URL",
             "base_url_default": "https://api.bfl.ai/v1",
             "api_key_env": "BFL_API_KEY",
+            "allowed_download_hosts": ["bfldeliveryprodeu4.blob.core.windows.net"],
+            "max_download_bytes": 10485760,
             "flux2": {
                 "default_model": "flux-2-klein-4b",
                 "models": ["flux-2-pro", "flux-2-max", "flux-2-flex", "flux-2-klein-4b", "flux-2-klein-9b"],
