@@ -9,26 +9,27 @@
 
 This module defines an endpoint to poll a Black Forest Labs (BFL) task by its
 polling_url. A successful response is the full JSON; result['sample'] is the
-signed URL for the generated image.
+signed URL for the generated image. SSRF-protected via allowlist; async.
 """
 
 #Native imports
 import os
 
 #Third-party imports
-import requests
+import httpx
 from fastapi import APIRouter, Request, HTTPException, Query
 
 #Other files imports
 from src.utils.custom_logger import log_handler
 from src.utils.limiter import limiter as SlowLimiter
-from src.utils.validators import is_url
+from src.utils.validators import validate_polling_url_allowed
 from src.core_specs.configuration.config_loader import config_loader
 from src.core_specs.data.data_loader import data_loader
 
 """VARIABLES-----------------------------------------------------------"""
 #Black Forest provider data (for API key env key)
 BF_CFG = data_loader["image_ai_providers"]["black_forest"]
+ALLOWED_POLLING_HOSTS = set(BF_CFG.get("allowed_polling_hosts", ["api.bfl.ai", "api.eu2.bfl.ai"]))
 
 
 def _get_bfl_headers() -> dict:
@@ -64,28 +65,18 @@ async def polling_requests(
 
     This endpoint calls the BFL polling URL and returns the full JSON response.
     When status is Ready, result['sample'] contains the signed URL to retrieve
-    the generated image (string or list of URLs).
-
-    Parameters:
-        request (Request): The incoming HTTP request for limit event management.
-        polling_url (str): The polling URL returned from the submit MIC endpoint.
-
-    Returns:
-        dict: Full BFL task response (status, result with 'sample' when Ready).
-
-    Note:
-        If the rate limit is exceeded, the rate_limit_handler() function handles the response.
+    the generated image (string or list of URLs). Only allowlisted BFL API hosts
+    are accepted (SSRF protection).
     """
-    #Validate polling URL
-    if not is_url(polling_url):
-        raise HTTPException(status_code=400, detail="Invalid polling URL.")
+    validate_polling_url_allowed(polling_url, ALLOWED_POLLING_HOSTS)
 
     log_handler.debug("Polling BFL task")
 
     #Poll BFL task status
     try:
-        resp = requests.get(polling_url, headers=_get_bfl_headers(), timeout=30)
-    except requests.RequestException as e:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            resp = await client.get(polling_url, headers=_get_bfl_headers())
+    except httpx.RequestError as e:
         log_handler.error(f"BFL poll request failed: {e}")
         raise HTTPException(status_code=502, detail="Failed to reach Black Forest API.")
 

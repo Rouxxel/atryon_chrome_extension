@@ -11,6 +11,7 @@ This module defines several methods to validate several things.
 """
 #Native imports
 import re
+from urllib.parse import urlparse
 
 #Other files imports
 from src.utils.custom_logger import log_handler
@@ -135,3 +136,55 @@ def validate_uuid_format(uuid_str: str):
 
 def is_url(value: str) -> bool:
     return value.startswith(("http://", "https://"))
+
+
+def _is_private_host(host: str) -> bool:
+    """True if host is localhost or a private IP (SSRF risk)."""
+    if not host:
+        return True
+    host = host.lower().strip()
+    if host in ("localhost", "::1", "0.0.0.0"):
+        return True
+    try:
+        import ipaddress
+        ip = ipaddress.ip_address(host)
+        return ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved
+    except ValueError:
+        pass
+    if host.startswith("127.") or host.startswith("10.") or host.startswith("192.168.") or host.startswith("169.254."):
+        return True
+    if host.startswith("172."):
+        parts = host.split(".")
+        if len(parts) == 4 and parts[1].isdigit() and 16 <= int(parts[1]) <= 31:
+            return True
+    return False
+
+
+def validate_polling_url_allowed(url: str, allowed_hosts: set) -> None:
+    """
+    SSRF check for polling URL: HTTPS only, host in allowlist.
+    Raises HTTPException if invalid.
+    """
+    if not is_url(url):
+        raise HTTPException(status_code=400, detail="Invalid polling URL.")
+    parsed = urlparse(url)
+    if parsed.scheme != "https":
+        raise HTTPException(status_code=400, detail="Polling URL must be HTTPS.")
+    host = (parsed.hostname or "").lower()
+    if not host or host not in allowed_hosts:
+        raise HTTPException(status_code=400, detail="Polling URL host not allowed.")
+
+
+def validate_image_url_safe(url: str) -> None:
+    """
+    SSRF check for image/mask URLs sent to BFL: HTTPS only, no private hosts.
+    Raises HTTPException if invalid.
+    """
+    if not is_url(url):
+        raise HTTPException(status_code=400, detail="Invalid image URL.")
+    parsed = urlparse(url)
+    if parsed.scheme != "https":
+        raise HTTPException(status_code=400, detail="Image URL must be HTTPS.")
+    host = (parsed.hostname or "").lower()
+    if _is_private_host(host):
+        raise HTTPException(status_code=400, detail="Image URL must not point to private or localhost.")

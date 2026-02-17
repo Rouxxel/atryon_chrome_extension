@@ -16,7 +16,7 @@ to poll until the task is ready.
 import os
 
 #Third-party imports
-import requests
+import httpx
 from fastapi import APIRouter, Request, HTTPException
 from pydantic import BaseModel, Field
 
@@ -112,11 +112,12 @@ async def submit_mic(request: Request, body: SubmitMicBody):
         "output_format": flux2.get("output_format", "jpeg"),
     }
 
-    #Submit request to BFL
+    #Submit request to BFL (async)
     try:
-        resp = requests.post(url, json=payload, headers=_get_bfl_headers(), timeout=60)
-    except requests.RequestException as e:
-        log_handler.error(f"BFL submit request failed: {e}")
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            resp = await client.post(url, json=payload, headers=_get_bfl_headers())
+    except httpx.RequestError as e:
+        log_handler.error(f"BFL MIC submit request failed: {e}")
         raise HTTPException(status_code=502, detail="Failed to reach Black Forest API.")
 
     if resp.status_code != 200:

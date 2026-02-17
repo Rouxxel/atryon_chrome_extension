@@ -9,8 +9,7 @@
 
 This module exposes a POST endpoint to submit a FLUX.2 text-to-image generation
 request to Black Forest Labs (BFL). It returns the polling_url for the client
-to poll until the task is ready. Polling and download use the same endpoints
-as multi-image composition (polling_requests, download_requests).
+to poll until the task is ready. Async; prompt and dimensions validated.
 """
 
 #Native imports
@@ -18,7 +17,7 @@ import os
 from typing import Optional
 
 #Third-party imports
-import requests
+import httpx
 from fastapi import APIRouter, Request, HTTPException
 from pydantic import BaseModel, Field
 
@@ -31,6 +30,9 @@ from src.core_specs.data.data_loader import data_loader
 """VARIABLES-----------------------------------------------------------"""
 #Black Forest provider data (model, dimensions, prompt prefix, etc.)
 BF_CFG = data_loader["image_ai_providers"]["black_forest"]
+MAX_PROMPT_LENGTH = data_loader["image_ai_providers"]["black_forest"]["max_prompt_length"]
+MIN_DIMENSION = data_loader["image_ai_providers"]["black_forest"]["flux2"]["min_dimensions"]
+MAX_DIMENSION = data_loader["image_ai_providers"]["black_forest"]["flux2"]["max_dimensions"]
 
 
 def _get_bfl_headers() -> dict:
@@ -51,11 +53,11 @@ def _build_full_prompt_tti(user_prompt: str) -> str:
 
 
 class SubmitTtiBody(BaseModel):
-    """Request body: text prompt and optional dimensions."""
+    """Request body: text prompt and optional dimensions (validated ranges)."""
 
-    prompt: str = Field(..., min_length=1, description="Text prompt describing the desired image (subject, scene, style)")
-    width: Optional[int] = Field(None, description="Output width in pixels (default from config)")
-    height: Optional[int] = Field(None, description="Output height in pixels (default from config)")
+    prompt: str = Field(..., min_length=1, max_length=MAX_PROMPT_LENGTH, description="Text prompt (max 4000 chars)")
+    width: Optional[int] = Field(None, ge=MIN_DIMENSION, le=MAX_DIMENSION, description="Output width 512–2048")
+    height: Optional[int] = Field(None, ge=MIN_DIMENSION, le=MAX_DIMENSION, description="Output height 512–2048")
 
 
 """API ROUTER-----------------------------------------------------------"""
@@ -76,19 +78,7 @@ async def submit_tti(request: Request, body: SubmitTtiBody):
     Submit a text-to-image generation job to Black Forest FLUX.2.
 
     This endpoint sends the user prompt to the BFL API and returns a polling_url.
-    The client should poll that URL until status is Ready (same polling endpoint
-    as multi-image composition), then use result['sample'] as the signed image
-    URL or call the download endpoint.
-
-    Parameters:
-        request (Request): The incoming HTTP request for limit event management.
-        body (SubmitTtiBody): JSON body with 'prompt' (str) and optional 'width', 'height'.
-
-    Returns:
-        dict: Contains 'polling_url' (str) to poll for task status.
-
-    Note:
-        If the rate limit is exceeded, the rate_limit_handler() function handles the response.
+    Prompt length and width/height are limited. Uses async HTTP (no blocking).
     """
     log_handler.debug("Submit TTI request received")
 
@@ -102,16 +92,12 @@ async def submit_tti(request: Request, body: SubmitTtiBody):
     url = f"{base_url.rstrip('/')}/{model}"
     width = body.width if body.width is not None else flux2.get("width", 1024)
     height = body.height if body.height is not None else flux2.get("height", 1024)
-    payload = {
-        "prompt": full_prompt,
-        "width": width,
-        "height": height,
-    }
+    payload = {"prompt": full_prompt, "width": width, "height": height}
 
-    #Submit request to BFL
     try:
-        resp = requests.post(url, json=payload, headers=_get_bfl_headers(), timeout=60)
-    except requests.RequestException as e:
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            resp = await client.post(url, json=payload, headers=_get_bfl_headers())
+    except httpx.RequestError as e:
         log_handler.error(f"BFL TTI submit request failed: {e}")
         raise HTTPException(status_code=502, detail="Failed to reach Black Forest API.")
 

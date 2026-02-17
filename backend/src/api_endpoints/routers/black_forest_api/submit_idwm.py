@@ -19,13 +19,14 @@ import os
 from typing import Optional
 
 #Third-party imports
-import requests
+import httpx
 from fastapi import APIRouter, Request, HTTPException
 from pydantic import BaseModel, Field
 
 #Other files imports
 from src.utils.custom_logger import log_handler
 from src.utils.limiter import limiter as SlowLimiter
+from src.utils.validators import is_url, validate_image_url_safe
 from src.core_specs.configuration.config_loader import config_loader
 from src.core_specs.data.data_loader import data_loader
 
@@ -95,6 +96,12 @@ async def submit_idwm(request: Request, body: SubmitIdwmBody):
     """
     log_handler.debug("Submit IDWM (FLUX.1 Fill) request received")
 
+    #Validate image/mask URLs (SSRF) when provided as URLs
+    if is_url(body.image):
+        validate_image_url_safe(body.image)
+    if body.mask and body.mask.strip() and is_url(body.mask):
+        validate_image_url_safe(body.mask)
+
     #Build full prompt with optional inpainting prefix from data config
     full_prompt = _build_full_prompt_fill(body.prompt)
 
@@ -114,10 +121,11 @@ async def submit_idwm(request: Request, body: SubmitIdwmBody):
     if body.mask is not None and body.mask.strip():
         payload["mask"] = body.mask
 
-    #Submit request to BFL
+    #Submit request to BFL (async)
     try:
-        resp = requests.post(url, json=payload, headers=_get_bfl_headers(), timeout=60)
-    except requests.RequestException as e:
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            resp = await client.post(url, json=payload, headers=_get_bfl_headers())
+    except httpx.RequestError as e:
         log_handler.error(f"BFL IDWM submit request failed: {e}")
         raise HTTPException(status_code=502, detail="Failed to reach Black Forest API.")
 

@@ -19,7 +19,7 @@ from typing import List
 
 # Other files imports
 from src.utils.custom_logger import log_handler
-from src.utils.validators import is_url
+from src.utils.validators import is_url, validate_image_url_safe
 from src.core_specs.data.data_loader import data_loader
 from fastapi import HTTPException
 
@@ -65,6 +65,7 @@ def normalize_reference_images(images: List[str]) -> List[str]:
     normalized: List[str] = []
     for i, img in enumerate(images):
         if is_url(img):
+            validate_image_url_safe(img)
             normalized.append(img)
             log_handler.debug(f"Reference image {i + 1}: using URL")
         else:
