@@ -20,6 +20,7 @@ from typing import List
 # Other files imports
 from src.utils.custom_logger import log_handler
 from src.utils.validators import is_url, validate_image_url_safe
+from src.utils.upload_store import is_upload_reference, extract_upload_id, resolve as resolve_upload
 from src.core_specs.data.data_loader import data_loader
 from fastapi import HTTPException
 
@@ -68,6 +69,11 @@ def normalize_reference_images(images: List[str]) -> List[str]:
             validate_image_url_safe(img)
             normalized.append(img)
             log_handler.debug(f"Reference image {i + 1}: using URL")
+        elif is_upload_reference(img):
+            upload_id = extract_upload_id(img)
+            b64 = resolve_upload(upload_id)
+            normalized.append(b64)
+            log_handler.debug(f"Reference image {i + 1}: resolved upload to base64")
         else:
             normalized.append(img)
             log_handler.debug(f"Reference image {i + 1}: using base64 data")
