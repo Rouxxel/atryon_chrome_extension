@@ -4,6 +4,7 @@ __pycache__/
 *$py.class
 *.py[cod]
 downloads/
+uploads_temp/
 .eggs/
 lib/
 lib64/

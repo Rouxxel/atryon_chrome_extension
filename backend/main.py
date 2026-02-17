@@ -26,6 +26,7 @@ load_dotenv()
 from src.utils.request_limiter import rate_limit_handler
 from src.utils.custom_logger import log_handler
 from src.utils.limiter import limiter
+from src.utils.upload_store import cleanup_expired
 
 #Json files
 from src.core_specs.configuration.config_loader import config_loader
@@ -41,6 +42,9 @@ from src.api_endpoints.routers.black_forest_api import router as black_forest_ro
 async def lifespan(app: FastAPI):
     port = config_loader["network"]["server_port"]
     log_handler.info(f"REST API Template server starting on port {port}")
+    removed = cleanup_expired()
+    if removed:
+        log_handler.info(f"Cleaned up {removed} expired upload(s) on startup")
     yield
     log_handler.info("REST API Template server shutting down")
 
