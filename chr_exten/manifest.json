@@ -3,6 +3,11 @@
   "name": "Atryon Extension",
   "version": "1.0.0",
   "description": "Try clothes on using AI (FLUX multi-image composition)",
+  "icons": {
+    "16": "assets/logo.png",
+    "48": "assets/logo.png",
+    "128": "assets/logo.png"
+  },
   "permissions": ["activeTab", "storage"],
   "host_permissions": [
     "http://localhost:8000/*",
@@ -11,7 +16,8 @@
   ],
   "action": {
     "default_popup": "popup.html",
-    "default_title": "Atryon"
+    "default_title": "Atryon",
+    "default_icon": "assets/logo.png"
   },
   "background": {
     "service_worker": "background.js"

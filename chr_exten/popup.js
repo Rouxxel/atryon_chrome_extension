@@ -14,11 +14,9 @@
 
   const els = {
     garmentSquare: document.getElementById('garmentSquare'),
-    garmentPlaceholder: document.getElementById('garmentPlaceholder'),
     garmentImg: document.getElementById('garmentImg'),
     selectGarment: document.getElementById('selectGarment'),
     selfieSquare: document.getElementById('selfieSquare'),
-    selfiePlaceholder: document.getElementById('selfiePlaceholder'),
     selfieImg: document.getElementById('selfieImg'),
     userImage: document.getElementById('userImage'),
     triggerUpload: document.getElementById('triggerUpload'),
@@ -36,16 +34,12 @@
 
   function showGarmentPreview(url) {
     garmentUrl = url;
-    els.garmentPlaceholder.hidden = true;
-    els.garmentImg.hidden = false;
     els.garmentImg.src = url;
     setStatus('Clothing selected');
   }
 
   function showSelfiePreview(file) {
     userFile = file;
-    els.selfiePlaceholder.hidden = true;
-    els.selfieImg.hidden = false;
     els.selfieImg.src = URL.createObjectURL(file);
     setStatus('Photo added');
   }

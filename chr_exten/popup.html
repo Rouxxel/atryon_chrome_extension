@@ -4,10 +4,14 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Atryon</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="popup.css">
 </head>
 <body>
   <header class="header">
+    <img src="assets/logo.png" alt="" class="header-logo" width="28" height="28">
     <h1 class="title">Atryon</h1>
   </header>
 
@@ -16,7 +20,7 @@
       <div class="square-wrap">
         <label class="square-label">Clothing piece</label>
         <div id="garmentSquare" class="square">
-          <img id="garmentImg" class="square-img" alt="Garment" hidden>
+          <img id="garmentImg" class="square-img" alt="Garment" src="assets/tshirt.png">
         </div>
         <button type="button" id="selectGarment" class="btn btn-secondary">Add garment</button>
       </div>
@@ -24,7 +28,7 @@
       <div class="square-wrap">
         <label class="square-label">Yourself</label>
         <div id="selfieSquare" class="square">
-          <img id="selfieImg" class="square-img" alt="Your photo" hidden>
+          <img id="selfieImg" class="square-img" alt="Your photo" src="assets/guy.png">
         </div>
         <input type="file" id="userImage" accept="image/*" class="file-input" aria-label="Upload your photo">
         <button type="button" id="triggerUpload" class="btn btn-secondary">Upload your photo</button>
