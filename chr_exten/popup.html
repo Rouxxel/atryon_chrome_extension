@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Atryon</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <header class="header">
+    <h1 class="title">Atryon</h1>
+  </header>
+
+  <main class="main">
+    <section class="squares">
+      <div class="square-wrap">
+        <label class="square-label">Clothing piece</label>
+        <div id="garmentSquare" class="square">
+          <span id="garmentPlaceholder" class="placeholder">Click "Select clothing" then click an image on the page</span>
+          <img id="garmentImg" class="square-img" alt="Garment" hidden>
+        </div>
+        <button type="button" id="selectGarment" class="btn btn-secondary">Add garment</button>
+      </div>
+
+      <div class="square-wrap">
+        <label class="square-label">Yourself</label>
+        <div id="selfieSquare" class="square">
+          <span id="selfiePlaceholder" class="placeholder">Upload a photo of yourself</span>
+          <img id="selfieImg" class="square-img" alt="Your photo" hidden>
+        </div>
+        <input type="file" id="userImage" accept="image/*" class="file-input" aria-label="Upload your photo">
+        <button type="button" id="triggerUpload" class="btn btn-secondary">Upload your photo</button>
+      </div>
+    </section>
+
+    <section class="prompt-section">
+      <label for="promptInput" class="prompt-label">Extra instructions (optional)</label>
+      <textarea id="promptInput" class="prompt-input" rows="2" placeholder="e.g. Keep my pose, natural lighting"></textarea>
+    </section>
+
+    <button type="button" id="tryOn" class="btn btn-primary">Try on</button>
+
+    <div id="status" class="status" aria-live="polite"></div>
+
+    <section id="resultSection" class="result-section" hidden>
+      <label class="result-label">Result</label>
+      <div class="result-wrap">
+        <img id="resultImg" class="result-img" alt="Try-on result">
+      </div>
+    </section>
+  </main>
+
+  <script src="popup.js"></script>
+</body>
+</html>

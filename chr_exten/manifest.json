@@ -1,0 +1,25 @@
+{
+  "manifest_version": 3,
+  "name": "Atryon Extension",
+  "version": "1.0.0",
+  "description": "Try clothes on using AI (FLUX multi-image composition)",
+  "permissions": ["activeTab", "storage"],
+  "host_permissions": [
+    "http://localhost:8000/*",
+    "https://*.onrender.com/*",
+    "<all_urls>"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Atryon"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"]
+    }
+  ]
+}

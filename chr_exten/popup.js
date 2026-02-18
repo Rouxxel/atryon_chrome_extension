@@ -1,0 +1,190 @@
+/**
+ * Atryon popup – Virtual try-on flow: upload → MIC → poll → download.
+ * Vanilla JS, Chrome APIs: runtime, tabs, storage.
+ */
+
+(function () {
+  const DEFAULT_BACKEND = 'https://atryon-chrome-extension.onrender.com';
+  const POLL_INTERVAL_MS = 2000;
+  const POLL_MAX_ATTEMPTS = 60;
+
+  let garmentUrl = null;
+  let userFile = null;
+  let backendBase = DEFAULT_BACKEND;
+
+  const els = {
+    garmentSquare: document.getElementById('garmentSquare'),
+    garmentPlaceholder: document.getElementById('garmentPlaceholder'),
+    garmentImg: document.getElementById('garmentImg'),
+    selectGarment: document.getElementById('selectGarment'),
+    selfieSquare: document.getElementById('selfieSquare'),
+    selfiePlaceholder: document.getElementById('selfiePlaceholder'),
+    selfieImg: document.getElementById('selfieImg'),
+    userImage: document.getElementById('userImage'),
+    triggerUpload: document.getElementById('triggerUpload'),
+    promptInput: document.getElementById('promptInput'),
+    tryOn: document.getElementById('tryOn'),
+    status: document.getElementById('status'),
+    resultSection: document.getElementById('resultSection'),
+    resultImg: document.getElementById('resultImg'),
+  };
+
+  function setStatus(text, isError = false) {
+    els.status.textContent = text;
+    els.status.className = 'status' + (isError ? ' error' : text ? ' success' : '');
+  }
+
+  function showGarmentPreview(url) {
+    garmentUrl = url;
+    els.garmentPlaceholder.hidden = true;
+    els.garmentImg.hidden = false;
+    els.garmentImg.src = url;
+    setStatus('Clothing selected');
+  }
+
+  function showSelfiePreview(file) {
+    userFile = file;
+    els.selfiePlaceholder.hidden = true;
+    els.selfieImg.hidden = false;
+    els.selfieImg.src = URL.createObjectURL(file);
+    setStatus('Photo added');
+  }
+
+  function getBackendBase() {
+    return backendBase.replace(/\/$/, '');
+  }
+
+  // Load saved backend URL
+  chrome.storage.local.get(['atryonBackendUrl'], function (data) {
+    if (data.atryonBackendUrl) backendBase = data.atryonBackendUrl;
+  });
+
+  // Select clothing from page
+  els.selectGarment.addEventListener('click', async function () {
+    setStatus('Click an image on the page…');
+    try {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (!tab?.id) {
+        setStatus('No active tab', true);
+        return;
+      }
+      chrome.tabs.sendMessage(tab.id, { type: 'START_SELECT' });
+    } catch (e) {
+      setStatus('Error: ' + (e.message || 'Could not access tab'), true);
+    }
+  });
+
+  // Garment selected (message from content script)
+  chrome.runtime.onMessage.addListener(function (msg) {
+    if (msg.type === 'GARMENT_SELECTED' && msg.src) {
+      showGarmentPreview(msg.src);
+    }
+  });
+
+  // Upload your photo (trigger hidden file input)
+  els.triggerUpload.addEventListener('click', function () {
+    els.userImage.click();
+  });
+
+  els.userImage.addEventListener('change', function () {
+    const file = this.files && this.files[0];
+    if (file) showSelfiePreview(file);
+  });
+
+  // Try on: upload → MIC → poll → download
+  els.tryOn.addEventListener('click', async function () {
+    if (!garmentUrl || !userFile) {
+      setStatus('Please select clothing from the page and upload your photo.', true);
+      return;
+    }
+
+    const base = getBackendBase();
+    els.tryOn.disabled = true;
+    setStatus('Uploading…');
+
+    try {
+      // 1) Upload user image
+      const form = new FormData();
+      form.append('files', userFile);
+
+      const uploadRes = await fetch(base + '/upload/images', {
+        method: 'POST',
+        body: form,
+      });
+
+      if (!uploadRes.ok) {
+        const err = await uploadRes.text();
+        throw new Error('Upload failed: ' + (err || uploadRes.status));
+      }
+
+      const uploadData = await uploadRes.json();
+      const uploadIds = uploadData.upload_ids;
+      if (!uploadIds || uploadIds.length === 0) throw new Error('No upload IDs returned');
+
+      const userUploadId = uploadIds[0];
+      setStatus('Starting try-on…');
+
+      // 2) MIC request (garment URL + upload:id for selfie)
+      const prompt = (els.promptInput.value || ' ').trim() || ' ';
+      const micRes = await fetch(base + '/bf_fl/mic', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt: prompt,
+          images: [garmentUrl, 'upload:' + userUploadId],
+        }),
+      });
+
+      if (!micRes.ok) {
+        const err = await micRes.text();
+        throw new Error('Try-on request failed: ' + (err || micRes.status));
+      }
+
+      const micData = await micRes.json();
+      const pollingUrl = micData.polling_url;
+      if (!pollingUrl) throw new Error('No polling URL returned');
+
+      setStatus('Generating…');
+
+      // 3) Poll until Ready
+      let result = null;
+      for (let i = 0; i < POLL_MAX_ATTEMPTS; i++) {
+        const pollRes = await fetch(base + '/bf_fl/polling_requests?polling_url=' + encodeURIComponent(pollingUrl));
+        if (!pollRes.ok) throw new Error('Poll failed: ' + pollRes.status);
+        const pollData = await pollRes.json();
+        if (pollData.status === 'Ready') {
+          result = pollData.result;
+          break;
+        }
+        if (pollData.status && pollData.status.toLowerCase() !== 'pending' && pollData.status.toLowerCase() !== 'processing') {
+          throw new Error('Task failed: ' + (pollData.status || 'unknown'));
+        }
+        await new Promise(function (r) { setTimeout(r, POLL_INTERVAL_MS); });
+      }
+
+      if (!result || !result.sample) {
+        throw new Error('No result image URL');
+      }
+
+      setStatus('Downloading result…');
+
+      // 4) Download image via backend proxy
+      const sampleUrl = result.sample;
+      const downloadRes = await fetch(base + '/bf_fl/download_requests?url=' + encodeURIComponent(sampleUrl));
+      if (!downloadRes.ok) {
+        throw new Error('Download failed: ' + downloadRes.status + '. You can open the result URL in a new tab.');
+      }
+      const blob = await downloadRes.blob();
+      const blobUrl = URL.createObjectURL(blob);
+
+      els.resultImg.src = blobUrl;
+      els.resultSection.hidden = false;
+      setStatus('Done');
+    } catch (e) {
+      setStatus(e.message || 'Something went wrong', true);
+      els.resultSection.hidden = true;
+    } finally {
+      els.tryOn.disabled = false;
+    }
+  });
+})();
