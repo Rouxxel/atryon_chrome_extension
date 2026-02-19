@@ -13,12 +13,17 @@
   let userFile = null;
   let backendBase = DEFAULT_BACKEND;
 
+  const DEFAULT_GARMENT_SRC = 'assets/tshirt.png';
+  const DEFAULT_SELFIE_SRC = 'assets/guy.png';
+
   const els = {
     garmentSquare: document.getElementById('garmentSquare'),
     garmentImg: document.getElementById('garmentImg'),
+    garmentClear: document.getElementById('garmentClear'),
     selectGarment: document.getElementById('selectGarment'),
     selfieSquare: document.getElementById('selfieSquare'),
     selfieImg: document.getElementById('selfieImg'),
+    selfieClear: document.getElementById('selfieClear'),
     userImage: document.getElementById('userImage'),
     triggerUpload: document.getElementById('triggerUpload'),
     promptInput: document.getElementById('promptInput'),
@@ -37,16 +42,35 @@
     garmentFile = file || null;
     garmentUrl = url;
     els.garmentImg.src = url;
-    setStatus('Clothing selected');
+    els.garmentSquare.classList.add('has-image');
+    setStatus('Clothing selected, be sure to add your selfie');
     if (!url || !url.startsWith('blob:')) {
       chrome.storage.local.set({ atryonGarmentUrl: url });
     }
   }
 
+  function clearGarment() {
+    garmentUrl = null;
+    garmentFile = null;
+    els.garmentImg.src = DEFAULT_GARMENT_SRC;
+    els.garmentSquare.classList.remove('has-image');
+    chrome.storage.local.remove('atryonGarmentUrl');
+    setStatus('');
+  }
+
   function showSelfiePreview(file) {
     userFile = file;
     els.selfieImg.src = URL.createObjectURL(file);
+    els.selfieSquare.classList.add('has-image');
     setStatus('Photo added');
+  }
+
+  function clearSelfie() {
+    userFile = null;
+    els.selfieImg.src = DEFAULT_SELFIE_SRC;
+    els.selfieSquare.classList.remove('has-image');
+    els.userImage.value = '';
+    setStatus('');
   }
 
   function getBackendBase() {
@@ -59,8 +83,21 @@
     if (data.atryonGarmentUrl) {
       garmentUrl = data.atryonGarmentUrl;
       els.garmentImg.src = data.atryonGarmentUrl;
-      setStatus('Clothing selected');
+      els.garmentSquare.classList.add('has-image');
+      setStatus('Clothing selected, be sure to add your selfie');
     }
+  });
+
+  els.garmentClear.addEventListener('click', function (e) {
+    e.preventDefault();
+    e.stopPropagation();
+    clearGarment();
+  });
+
+  els.selfieClear.addEventListener('click', function (e) {
+    e.preventDefault();
+    e.stopPropagation();
+    clearSelfie();
   });
 
   // Drag and drop onto garment square
@@ -100,7 +137,7 @@
 
   // Select clothing from page (button still opens overlay)
   els.selectGarment.addEventListener('click', async function () {
-    setStatus('Click an image on the page…');
+    setStatus('Drag and drop an image from the page to the garment square…');
     try {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
       if (!tab?.id) {
@@ -226,7 +263,7 @@
 
       els.resultImg.src = blobUrl;
       els.resultSection.hidden = false;
-      setStatus('Done');
+      setStatus('Done, scroll down to see the result');
     } catch (e) {
       setStatus(e.message || 'Something went wrong', true);
       els.resultSection.hidden = true;

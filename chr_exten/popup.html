@@ -21,6 +21,7 @@
         <label class="square-label">Clothing piece</label>
         <div id="garmentSquare" class="square drop-zone">
           <img id="garmentImg" class="square-img" alt="Garment" src="assets/tshirt.png">
+          <button type="button" id="garmentClear" class="square-clear" aria-label="Remove garment" title="Choose a different image">×</button>
         </div>
         <button type="button" id="selectGarment" class="btn btn-secondary">Drop above</button>
       </div>
@@ -29,6 +30,7 @@
         <label class="square-label">Yourself</label>
         <div id="selfieSquare" class="square">
           <img id="selfieImg" class="square-img" alt="Your photo" src="assets/guy.png">
+          <button type="button" id="selfieClear" class="square-clear" aria-label="Remove photo" title="Choose a different image">×</button>
         </div>
         <input type="file" id="userImage" accept="image/*" class="file-input" aria-label="Upload your photo">
         <button type="button" id="triggerUpload" class="btn btn-secondary">Upload your photo</button>
