@@ -248,15 +248,29 @@ body {
 }
 
 .result-wrap {
+  margin-left: 8px;
+  margin-right: 8px;
   border-radius: 12px;
   overflow: hidden;
   background: var(--surface);
   border: 1px solid var(--border);
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
 .result-img {
-  width: 100%;
+  max-width: 100%;
+  width: auto;
   height: auto;
   display: block;
+  object-fit: contain;
   vertical-align: top;
+}
+
+.result-download {
+  display: block;
+  width: calc(100% - 16px);
+  margin: 10px 8px 0;
+  box-sizing: border-box;
 }

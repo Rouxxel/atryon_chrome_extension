@@ -31,6 +31,7 @@
     status: document.getElementById('status'),
     resultSection: document.getElementById('resultSection'),
     resultImg: document.getElementById('resultImg'),
+    downloadResult: document.getElementById('downloadResult'),
   };
 
   function setStatus(text, isError = false) {
@@ -270,5 +271,15 @@
     } finally {
       els.tryOn.disabled = false;
     }
+  });
+
+  // Download result image
+  els.downloadResult.addEventListener('click', function () {
+    const src = els.resultImg.src;
+    if (!src) return;
+    const a = document.createElement('a');
+    a.href = src;
+    a.download = 'atryon-result.png';
+    a.click();
   });
 })();
