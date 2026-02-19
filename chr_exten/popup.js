@@ -8,7 +8,8 @@
   const POLL_INTERVAL_MS = 2000;
   const POLL_MAX_ATTEMPTS = 60;
 
-  let garmentUrl = null;
+  let garmentUrl = null;   // display URL (object URL or http)
+  let garmentFile = null;  // set when user drops a file; uploaded at try-on
   let userFile = null;
   let backendBase = DEFAULT_BACKEND;
 
@@ -32,10 +33,14 @@
     els.status.className = 'status' + (isError ? ' error' : text ? ' success' : '');
   }
 
-  function showGarmentPreview(url) {
+  function showGarmentPreview(url, file) {
+    garmentFile = file || null;
     garmentUrl = url;
     els.garmentImg.src = url;
     setStatus('Clothing selected');
+    if (!url || !url.startsWith('blob:')) {
+      chrome.storage.local.set({ atryonGarmentUrl: url });
+    }
   }
 
   function showSelfiePreview(file) {
@@ -48,12 +53,52 @@
     return backendBase.replace(/\/$/, '');
   }
 
-  // Load saved backend URL
-  chrome.storage.local.get(['atryonBackendUrl'], function (data) {
+  // Load saved backend URL and persisted garment
+  chrome.storage.local.get(['atryonBackendUrl', 'atryonGarmentUrl'], function (data) {
     if (data.atryonBackendUrl) backendBase = data.atryonBackendUrl;
+    if (data.atryonGarmentUrl) {
+      garmentUrl = data.atryonGarmentUrl;
+      els.garmentImg.src = data.atryonGarmentUrl;
+      setStatus('Clothing selected');
+    }
   });
 
-  // Select clothing from page
+  // Drag and drop onto garment square
+  function preventDefault(e) {
+    e.preventDefault();
+    e.stopPropagation();
+  }
+  els.garmentSquare.addEventListener('dragover', function (e) {
+    preventDefault(e);
+    e.dataTransfer.dropEffect = 'copy';
+    els.garmentSquare.classList.add('drag-over');
+  });
+  els.garmentSquare.addEventListener('dragleave', function (e) {
+    preventDefault(e);
+    els.garmentSquare.classList.remove('drag-over');
+  });
+  els.garmentSquare.addEventListener('drop', function (e) {
+    preventDefault(e);
+    els.garmentSquare.classList.remove('drag-over');
+    const files = e.dataTransfer.files;
+    if (files && files.length > 0) {
+      const file = files[0];
+      if (!file.type.startsWith('image/')) {
+        setStatus('Please drop an image file.', true);
+        return;
+      }
+      showGarmentPreview(URL.createObjectURL(file), file);
+      return;
+    }
+    const url = e.dataTransfer.getData('text/uri-list') || e.dataTransfer.getData('text/plain');
+    if (url) {
+      showGarmentPreview(url.trim());
+      return;
+    }
+    setStatus('Drop an image file or an image from the page.', true);
+  });
+
+  // Select clothing from page (button still opens overlay)
   els.selectGarment.addEventListener('click', async function () {
     setStatus('Click an image on the page…');
     try {
@@ -68,10 +113,12 @@
     }
   });
 
-  // Garment selected (message from content script)
+  // Garment selected or selection cancelled (message from content script)
   chrome.runtime.onMessage.addListener(function (msg) {
     if (msg.type === 'GARMENT_SELECTED' && msg.src) {
       showGarmentPreview(msg.src);
+    } else if (msg.type === 'CANCEL_SELECT') {
+      setStatus('Selection cancelled');
     }
   });
 
@@ -97,8 +144,11 @@
     setStatus('Uploading…');
 
     try {
-      // 1) Upload user image
+      let garmentImage = garmentUrl;
       const form = new FormData();
+      if (garmentFile) {
+        form.append('files', garmentFile);
+      }
       form.append('files', userFile);
 
       const uploadRes = await fetch(base + '/upload/images', {
@@ -115,17 +165,20 @@
       const uploadIds = uploadData.upload_ids;
       if (!uploadIds || uploadIds.length === 0) throw new Error('No upload IDs returned');
 
-      const userUploadId = uploadIds[0];
+      const userUploadId = uploadIds[uploadIds.length - 1];
+      if (garmentFile && uploadIds.length >= 2) {
+        garmentImage = 'upload:' + uploadIds[0];
+      }
       setStatus('Starting try-on…');
 
-      // 2) MIC request (garment URL + upload:id for selfie)
+      // 2) MIC request (garment URL or upload:id + upload:id for selfie)
       const prompt = (els.promptInput.value || ' ').trim() || ' ';
       const micRes = await fetch(base + '/bf_fl/mic', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           prompt: prompt,
-          images: [garmentUrl, 'upload:' + userUploadId],
+          images: [garmentImage, 'upload:' + userUploadId],
         }),
       });
 
