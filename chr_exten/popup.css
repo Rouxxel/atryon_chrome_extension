@@ -91,6 +91,15 @@ body {
   position: relative;
 }
 
+.square.drop-zone {
+  cursor: copy;
+}
+
+.square.drop-zone.drag-over {
+  border-color: var(--primary);
+  background: rgba(107, 124, 92, 0.15);
+}
+
 .square-img {
   width: 100%;
   height: 100%;
