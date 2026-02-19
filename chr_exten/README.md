@@ -10,8 +10,8 @@ Manifest V3 extension: **Virtual try-on** using the Atryon backend (upload → M
 
 ## Flow
 
-1. User clicks extension icon → popup opens.
-2. **Clothing:** Click "Select clothing", then click an image on the page (e.g. product photo). That image URL is sent to the backend as the first input.
+1. User clicks extension icon → **side panel** opens (stays open when you click the page).
+2. **Clothing:** Click "Add garment", then click an image on the page (e.g. product photo). That image URL is sent to the backend as the first input. The panel does not close when you click the page.
 3. **Your photo:** Click "Upload your photo" and choose an image. It is uploaded to the backend and referenced as `upload:<id>`.
 4. Optionally add extra instructions in the text box.
 5. Click **Try on** → extension: uploads user image → calls MIC with `[garmentUrl, "upload:id"]` → polls until Ready → downloads result and shows it in the popup.
@@ -35,7 +35,9 @@ To use a different backend (e.g. local):
 
 ## Files
 
-- `manifest.json` – MV3, permissions, popup, content script, background
-- `popup.html` / `popup.css` / `popup.js` – popup UI and try-on flow
+- `manifest.json` – MV3, permissions, **side panel** (no popup), content script, background
+- `popup.html` / `popup.css` / `popup.js` – side panel UI and try-on flow (same HTML; used as side panel so it stays open)
 - `content.js` – runs on all pages; handles "Select clothing" and sends image URL to popup
-- `background.js` – service worker (minimal)
+- `background.js` – service worker; sets `openPanelOnActionClick: true` so the icon opens the side panel.
+
+Close the panel with Chrome’s side panel close button.
