@@ -25,10 +25,10 @@ backend/
 │   │   └── routers/
 │   │       ├── upload_files/          # Reusable file upload (MIC, IDWM, etc.)
 │   │       │   └── upload_images.py   # POST /upload/images
-│   │       └── black_forest_api/      # BFL FLUX endpoints
-│   │           ├── submit_mic.py      # POST /ai_gen_edit/mic
-│   │           ├── submit_tti.py      # POST /ai_gen_edit/tti
-│   │           ├── submit_idwm.py     # POST /ai_gen_edit/idwm
+│   │       └── black_forest_api/      # BFL FLUX endpoints (prefix /bf_fl)
+│   │           ├── submit_mic.py      # POST /bf_fl/mic
+│   │           ├── submit_tti.py      # POST /bf_fl/tti
+│   │           ├── submit_idwm.py     # POST /bf_fl/idwm
 │   │           ├── polling_requests.py
 │   │           └── download_requests.py
 │   ├── core_specs/
@@ -102,13 +102,13 @@ Port can be overridden with `SERVER_PORT` in `.env` (e.g. `SERVER_PORT=8080`).
 |--------|------|-------------|
 | GET | `/` | Health check |
 | POST | `/upload/images` | Upload one or more images; returns `upload_ids` for use as `upload:<id>` in MIC/IDWM |
-| POST | `/ai_gen_edit/mic` | Multi-image composition (FLUX.2); body: `prompt`, `images[]` |
-| POST | `/ai_gen_edit/tti` | Text-to-image (FLUX.2); body: `prompt`, optional `width`, `height` |
-| POST | `/ai_gen_edit/idwm` | Image edit with mask (FLUX.1 Fill); body: `prompt`, `image`, optional `mask` |
-| GET | `/ai_gen_edit/polling_requests?polling_url=...` | Poll BFL task; response includes `result.sample` (image URL) |
-| GET | `/ai_gen_edit/download_requests?url=...` | Download image from signed URL |
+| POST | `/bf_fl/mic` | Multi-image composition (FLUX.2); body: `prompt`, `images[]` |
+| POST | `/bf_fl/tti` | Text-to-image (FLUX.2); body: `prompt`, optional `width`, `height` |
+| POST | `/bf_fl/idwm` | Image edit with mask (FLUX.1 Fill); body: `prompt`, `image`, optional `mask` |
+| GET | `/bf_fl/polling_requests?polling_url=...` | Poll BFL task; response includes `result.sample` (image URL) |
+| GET | `/bf_fl/download_requests?url=...` | Download image from signed URL |
 
-Flow: **submit** → **poll** until `status == "Ready"` → use **`result['sample']`** or **download** endpoint to get the image.
+Flow: **submit** → **poll** until `status == "Ready"` → use **`result['sample']`** or **download** endpoint to get the image. Path prefixes are configured in `config_file.json`.
 
 ## Configuration
 
