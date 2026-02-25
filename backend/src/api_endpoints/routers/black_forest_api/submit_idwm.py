@@ -158,4 +158,5 @@ async def submit_idwm(request: Request, body: SubmitIdwmBody):
         raise HTTPException(status_code=502, detail="Black Forest API did not return a polling_url.")
 
     log_handler.info("IDWM (FLUX.1 Fill) task submitted successfully")
+    log_handler.warning(f"[IDWM] polling_url={polling_url}")
     return {"polling_url": polling_url}

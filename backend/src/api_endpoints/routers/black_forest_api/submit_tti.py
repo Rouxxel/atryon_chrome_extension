@@ -111,4 +111,5 @@ async def submit_tti(request: Request, body: SubmitTtiBody):
         raise HTTPException(status_code=502, detail="Black Forest API did not return a polling_url.")
 
     log_handler.info("TTI task submitted successfully")
+    log_handler.warning(f"[TTI] polling_url={polling_url}")
     return {"polling_url": polling_url}

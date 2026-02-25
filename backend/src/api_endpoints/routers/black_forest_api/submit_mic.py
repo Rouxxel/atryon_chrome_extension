@@ -137,4 +137,5 @@ async def submit_mic(request: Request, body: SubmitMicBody):
         raise HTTPException(status_code=502, detail="Black Forest API did not return a polling_url.")
 
     log_handler.info("MIC task submitted successfully")
+    log_handler.warning(f"[MIC] polling_url={polling_url}")
     return {"polling_url": polling_url}
