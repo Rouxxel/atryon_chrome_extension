@@ -7,6 +7,8 @@
   const DEFAULT_BACKEND = 'https://atryon-chrome-extension.onrender.com';
   const POLL_INTERVAL_MS = 2000;
   const POLL_MAX_ATTEMPTS = 60;
+  const POLL_REQUEST_RETRIES = 3;
+  const POLL_REQUEST_RETRY_DELAY_MS = 1500;
 
   let garmentUrl = null;   // display URL (object URL or http)
   let garmentFile = null;  // set when user drops a file; uploaded at try-on
@@ -231,11 +233,32 @@
 
       setStatus('Generating…');
 
-      // 3) Poll until Ready
+      // 3) Poll until Ready (with retries on poll request failure)
       let result = null;
       for (let i = 0; i < POLL_MAX_ATTEMPTS; i++) {
-        const pollRes = await fetch(base + '/bf_fl/polling_requests?polling_url=' + encodeURIComponent(pollingUrl));
-        if (!pollRes.ok) throw new Error('Poll failed: ' + pollRes.status);
+        let pollRes = null;
+        let pollErr = null;
+        let lastErrBody = '';
+        for (let r = 0; r < POLL_REQUEST_RETRIES; r++) {
+          try {
+            pollRes = await fetch(base + '/bf_fl/polling_requests?polling_url=' + encodeURIComponent(pollingUrl));
+            pollErr = null;
+            if (pollRes.ok) break;
+            lastErrBody = await pollRes.text();
+            if (r < POLL_REQUEST_RETRIES - 1) {
+              await new Promise(function (rx) { setTimeout(rx, POLL_REQUEST_RETRY_DELAY_MS); });
+            }
+          } catch (e) {
+            pollErr = e;
+            if (r < POLL_REQUEST_RETRIES - 1) {
+              await new Promise(function (rx) { setTimeout(rx, POLL_REQUEST_RETRY_DELAY_MS); });
+            }
+          }
+        }
+        if (pollErr) throw new Error('Polling error: ' + (pollErr.message || String(pollErr)) + ' (tried ' + POLL_REQUEST_RETRIES + ' times)');
+        if (!pollRes || !pollRes.ok) {
+          throw new Error('Poll failed: ' + (pollRes ? pollRes.status : 'no response') + (lastErrBody ? ' - ' + lastErrBody : ''));
+        }
         const pollData = await pollRes.json();
         if (pollData.status === 'Ready') {
           result = pollData.result;
