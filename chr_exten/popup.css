@@ -51,6 +51,22 @@ body {
   flex-shrink: 0;
 }
 
+/* Hidden button: looks like header logo + title, no visible button styling */
+.header-wake {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
 .header-logo {
   flex-shrink: 0;
   width: 28px;

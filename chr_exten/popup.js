@@ -34,6 +34,7 @@
     resultSection: document.getElementById('resultSection'),
     resultImg: document.getElementById('resultImg'),
     downloadResult: document.getElementById('downloadResult'),
+    wakeBackend: document.getElementById('wakeBackend'),
   };
 
   function setStatus(text, isError = false) {
@@ -89,6 +90,11 @@
       els.garmentSquare.classList.add('has-image');
       setStatus('Clothing selected, be sure to add your selfie');
     }
+  });
+
+  // Wake backend (root health check) when user clicks logo/title – no UI feedback
+  els.wakeBackend.addEventListener('click', function () {
+    fetch(getBackendBase() + '/').catch(function () {});
   });
 
   els.garmentClear.addEventListener('click', function (e) {
