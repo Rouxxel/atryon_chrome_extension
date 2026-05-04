@@ -77,6 +77,7 @@ async def download_requests(
     """
     ok, err = _url_allowed(url)
     if not ok:
+        log_handler.error(f"Url not ok: {url}")
         raise HTTPException(status_code=400, detail=err)
 
     log_handler.debug("Downloading image from provided URL")
