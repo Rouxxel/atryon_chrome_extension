@@ -4,16 +4,25 @@
  */
 
 (function () {
-  const DEFAULT_BACKEND = 'https://atryon-chrome-extension.onrender.com';
   const POLL_INTERVAL_MS = 2000;
   const POLL_MAX_ATTEMPTS = 60;
   const POLL_REQUEST_RETRIES = 3;
   const POLL_REQUEST_RETRY_DELAY_MS = 1500;
+  const IS_DEV = false; //TODO: REMEMBER TO SWITCH ONCE NOT ON DEV FOR FUCK SAKE
+  const DEFAULT_BACKEND = IS_DEV 
+    ? 'http://localhost:8000' 
+    : 'https://atryon-chrome-extension.onrender.com';
 
   let garmentUrl = null;   // display URL (object URL or http)
   let garmentFile = null;  // set when user drops a file; uploaded at try-on
   let userFile = null;
-  let backendBase = DEFAULT_BACKEND;
+  let backendBase = null;
+
+  async function resolveBackend() {
+    const data = await chrome.storage.local.get(['atryonBackendUrl']);
+    const base = data.atryonBackendUrl || DEFAULT_BACKEND;
+    return base.replace(/\/$/, ''); // Removes trailing slash if present
+  }
 
   const DEFAULT_GARMENT_SRC = 'assets/tshirt.png';
   const DEFAULT_SELFIE_SRC = 'assets/guy.png';
@@ -82,8 +91,7 @@
   }
 
   // Load saved backend URL and persisted garment
-  chrome.storage.local.get(['atryonBackendUrl', 'atryonGarmentUrl'], function (data) {
-    if (data.atryonBackendUrl) backendBase = data.atryonBackendUrl;
+  chrome.storage.local.get(['atryonGarmentUrl'], function (data) {
     if (data.atryonGarmentUrl) {
       garmentUrl = data.atryonGarmentUrl;
       els.garmentImg.src = data.atryonGarmentUrl;
@@ -93,8 +101,9 @@
   });
 
   // Wake backend (root health check) when user clicks logo/title – no UI feedback
-  els.wakeBackend.addEventListener('click', function () {
-    fetch(getBackendBase() + '/').catch(function () {});
+  els.wakeBackend.addEventListener('click', async function () {
+    const base = await resolveBackend();
+    fetch(base + '/').catch(function () {});
   });
 
   els.garmentClear.addEventListener('click', function (e) {
@@ -185,7 +194,8 @@
       return;
     }
 
-    const base = getBackendBase();
+    //resolve backend url
+    const base = await resolveBackend();
     els.tryOn.disabled = true;
     setStatus('Uploading…');
 
