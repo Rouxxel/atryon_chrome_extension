@@ -24,20 +24,28 @@ from src.utils.upload_store import is_upload_reference, extract_upload_id, resol
 from src.core_specs.data.data_loader import data_loader
 from fastapi import HTTPException
 
+# Define a strictly controlled base directory for your images
+IMAGE_SAFE_ZONE = os.path.abspath("data/uploads")
 
 def image_to_base64(image_path: str) -> str:
     """
-    Convert a local image file to a base64-encoded string.
-
-    :param image_path: Path to the image file.
-    :return: Base64-encoded string (UTF-8 decoded).
-    :raises FileNotFoundError: If the file does not exist.
+    Convert a local image file to a base64-encoded string with path validation.
     """
-    if not os.path.isfile(image_path):
-        raise FileNotFoundError(f"Image not found: {image_path}")
-    with open(image_path, "rb") as f:
+    #absolute path of the requested file
+    requested_path = os.path.abspath(image_path)
+
+    #Check requested path starts with safe directory
+    if not requested_path.startswith(IMAGE_SAFE_ZONE):
+        log_handler.error(f"Security Alert: Attempted access outside safe zone: {requested_path}")
+        raise HTTPException(status_code=403, detail="Access to the requested path is forbidden.")
+    if not os.path.isfile(requested_path):
+        raise FileNotFoundError(f"Image not found: {requested_path}")
+
+    #Read encode
+    with open(requested_path, "rb") as f:
         encoded = base64.b64encode(f.read()).decode("utf-8")
-    log_handler.debug(f"Encoded local image to base64: {image_path}")
+    
+    log_handler.debug(f"Encoded local image to base64: {requested_path}")
     return encoded
 
 
