@@ -11,8 +11,7 @@
   "permissions": ["activeTab", "storage", "sidePanel"],
   "host_permissions": [
     "http://localhost:8000/*",
-    "https://*.onrender.com/*",
-    "<all_urls>"
+    "https://*.onrender.com/*"
   ],
   "action": {
     "default_title": "Atryon",
