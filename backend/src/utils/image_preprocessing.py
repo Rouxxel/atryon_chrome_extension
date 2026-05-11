@@ -15,6 +15,7 @@ public URLs (passed through) or base64-encoded strings (e.g. from local files).
 # Native imports
 import base64
 import os
+from pathlib import Path
 from typing import List
 
 # Other files imports
@@ -25,25 +26,25 @@ from src.core_specs.data.data_loader import data_loader
 from fastapi import HTTPException
 
 # Define a strictly controlled base directory for your images
-IMAGE_SAFE_ZONE = os.path.abspath("data/uploads")
+IMAGE_SAFE_ZONE = Path("data/uploads").resolve()
 
 def image_to_base64(image_path: str) -> str:
     """
     Convert a local image file to a base64-encoded string with path validation.
     """
-    #absolute path of the requested file
-    requested_path = os.path.abspath(image_path)
+    # Resolve to absolute path and handle symlinks/redundant separators
+    requested_path = Path(image_path).resolve()
 
-    #Check requested path starts with safe directory
-    if not requested_path.startswith(IMAGE_SAFE_ZONE):
+    # Check if the requested path is strictly within the safe directory
+    if not requested_path.is_relative_to(IMAGE_SAFE_ZONE):
         log_handler.error(f"Security Alert: Attempted access outside safe zone: {requested_path}")
         raise HTTPException(status_code=403, detail="Access to the requested path is forbidden.")
-    if not os.path.isfile(requested_path):
+    
+    if not requested_path.is_file():
         raise FileNotFoundError(f"Image not found: {requested_path}")
 
-    #Read encode
-    with open(requested_path, "rb") as f:
-        encoded = base64.b64encode(f.read()).decode("utf-8")
+    # Read and encode using pathlib for safer file handling
+    encoded = base64.b64encode(requested_path.read_bytes()).decode("utf-8")
     
     log_handler.debug(f"Encoded local image to base64: {requested_path}")
     return encoded
