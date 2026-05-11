@@ -9,9 +9,18 @@
   const POLL_REQUEST_RETRIES = 3;
   const POLL_REQUEST_RETRY_DELAY_MS = 1500;
   const IS_DEV = false; //TODO: REMEMBER TO SWITCH ONCE NOT ON DEV FOR FUCK SAKE
-  const DEFAULT_BACKEND = IS_DEV 
-    ? 'http://localhost:8000' 
+  const DEFAULT_BACKEND = IS_DEV
+    ? 'http://localhost:8000'
     : 'https://atryon-chrome-extension.onrender.com';
+
+  // Allowed domains for SSRF protection (BFL API and storage)
+  const ALLOWED_BFL_HOSTS = [
+    'api.bfl.ai', 'bfldeliveryprodeu4.blob.core.windows.net', 'bfldeliveryscus.blob.core.windows.net',
+    'delivery.eu1.bfl.ai', 'delivery.eu2.bfl.ai', 'delivery.eu3.bfl.ai', 'delivery.eu4.bfl.ai',
+    'delivery.us1.bfl.ai', 'delivery.us2.bfl.ai', 'delivery.us3.bfl.ai', 'delivery.us4.bfl.ai',
+    'api.eu1.bfl.ai', 'api.eu2.bfl.ai', 'api.eu3.bfl.ai', 'api.eu4.bfl.ai',
+    'api.us1.bfl.ai', 'api.us2.bfl.ai', 'api.us3.bfl.ai', 'api.us4.bfl.ai'
+  ];
 
   let garmentUrl = null;   // display URL (object URL or http)
   let garmentFile = null;  // set when user drops a file; uploaded at try-on
@@ -90,6 +99,17 @@
     return backendBase.replace(/\/$/, '');
   }
 
+  // Validate that a URL is a secure HTTPS URL from an allowed BFL domain.
+  function isSecureBflUrl(url) {
+    if (!url || typeof url !== 'string') return false;
+    try {
+      const parsed = new URL(url);
+      return parsed.protocol === 'https:' && ALLOWED_BFL_HOSTS.includes(parsed.hostname.toLowerCase());
+    } catch (e) {
+      return false;
+    }
+  }
+
   // Load saved backend URL and persisted garment
   chrome.storage.local.get(['atryonGarmentUrl'], function (data) {
     if (data.atryonGarmentUrl) {
@@ -103,7 +123,7 @@
   // Wake backend (root health check) when user clicks logo/title – no UI feedback
   els.wakeBackend.addEventListener('click', async function () {
     const base = await resolveBackend();
-    fetch(base + '/').catch(function () {});
+    fetch(base + '/').catch(function () { });
   });
 
   els.garmentClear.addEventListener('click', function (e) {
@@ -247,6 +267,11 @@
       const pollingUrl = micData.polling_url;
       if (!pollingUrl) throw new Error('No polling URL returned');
 
+      // SSRF Validation
+      if (!isSecureBflUrl(pollingUrl)) {
+        throw new Error('Security Error: Untrusted polling URL domain.');
+      }
+
       setStatus('Generating…');
 
       // 3) Poll until Ready (with retries on poll request failure)
@@ -293,7 +318,13 @@
       setStatus('Downloading result…');
 
       // 4) Download image via backend proxy
-      const sampleUrl = result.sample;
+      const sampleUrl = Array.isArray(result.sample) ? result.sample[0] : result.sample;
+
+      // SSRF Validation
+      if (!isSecureBflUrl(sampleUrl)) {
+        throw new Error('Security Error: Untrusted sample URL domain.');
+      }
+
       const downloadRes = await fetch(base + '/bf_fl/download_requests?url=' + encodeURIComponent(sampleUrl));
       if (!downloadRes.ok) {
         throw new Error('Download failed: ' + downloadRes.status + '. You can open the result URL in a new tab.');
