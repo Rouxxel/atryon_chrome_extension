@@ -60,6 +60,24 @@
     els.status.className = 'status' + (isError ? ' error' : text ? ' success' : '');
   }
 
+  //For validating urls
+  function buildValidatedUrl(baseUrl, endpoint, urlParam) {
+    try {
+      const url = new URL(endpoint, baseUrl);
+
+      url.searchParams.set(
+        endpoint === '/bf_fl/polling_requests'
+          ? 'polling_url'
+          : 'url',
+        urlParam
+      );
+
+      return url.href;
+    } catch {
+      throw new Error('Invalid URL');
+    }
+  }
+
   function showGarmentPreview(url, file) {
     garmentFile = file || null;
     garmentUrl = url;
@@ -282,7 +300,7 @@
         let lastErrBody = '';
         for (let r = 0; r < POLL_REQUEST_RETRIES; r++) {
           try {
-            pollRes = await fetch(base + '/bf_fl/polling_requests?polling_url=' + encodeURIComponent(pollingUrl));
+            pollRes = await fetch(buildValidatedUrl(base, '/bf_fl/polling_requests', pollingUrl));
             pollErr = null;
             if (pollRes.ok) break;
             lastErrBody = await pollRes.text();
@@ -325,7 +343,7 @@
         throw new Error('Security Error: Untrusted sample URL domain.');
       }
 
-      const downloadRes = await fetch(base + '/bf_fl/download_requests?url=' + encodeURIComponent(sampleUrl));
+      const downloadRes = await fetch(buildValidatedUrl(base, '/bf_fl/download_requests', sampleUrl));
       if (!downloadRes.ok) {
         throw new Error('Download failed: ' + downloadRes.status + '. You can open the result URL in a new tab.');
       }
