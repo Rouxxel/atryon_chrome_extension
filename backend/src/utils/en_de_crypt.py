@@ -43,9 +43,9 @@ try:
         E_PRIVATE_KEY.encode(),
         password=E_PRIVATE_PASSWORD.encode()
     )
-    log_handler.info("Private key loaded successfully.")
+    log_handler.info("[en_de_crypt] Private key loaded successfully.")
 except Exception as e:
-    log_handler.error(f"Failed to load private key: {e}")
+    log_handler.error(f"[en_de_crypt] Failed to load private key: {e}")
     raise
 
 #Load the public key once
@@ -53,9 +53,9 @@ try:
     _public_key = serialization.load_pem_public_key(
         E_PUBLIC_KEY.encode()
     )
-    log_handler.info("Public key loaded successfully.")
+    log_handler.info("[en_de_crypt] Public key loaded successfully.")
 except Exception as e:
-    log_handler.error(f"Failed to load public key: {e}")
+    log_handler.error(f"[en_de_crypt] Failed to load public key: {e}")
     raise
 
 """SINGLETON METHODS -----------------------------------------------------"""
@@ -79,7 +79,7 @@ def encrypt_in(message) -> str:
             label=None
         )
     )
-    log_handler.debug("Encryption successful")
+    log_handler.debug("[en_de_crypt] Encryption successful")
     return b64encode(encrypted).decode()
 
 
@@ -117,11 +117,11 @@ def decrypt_out(token: str, dtype: str = "str"):
     }
 
     if dtype not in type_map:
-        log_handler.debug("Decryption unsuccessful")
+        log_handler.debug("[en_de_crypt] Decryption unsuccessful")
         raise ValueError(
             f"Unsupported dtype '{dtype}'. Supported types: {list(type_map.keys())}"
         )
 
     convert_func = type_map[dtype]
-    log_handler.debug("Decryption successful")
+    log_handler.debug("[en_de_crypt] Decryption successful")
     return convert_func(decrypted_str)

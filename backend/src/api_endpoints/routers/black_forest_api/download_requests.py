@@ -77,16 +77,16 @@ async def download_requests(
     """
     ok, err = _url_allowed(url)
     if not ok:
-        log_handler.error(f"Url not ok: {url}")
+        log_handler.error(f"[download_requests] Url not ok: {url}")
         raise HTTPException(status_code=400, detail=err)
 
-    log_handler.debug("Downloading image from provided URL")
+    log_handler.debug("[download_requests] Downloading image from provided URL")
 
     try:
         async with httpx.AsyncClient(timeout=60.0) as client:
             async with client.stream("GET", url, headers=DOWNLOAD_HEADERS) as resp:
                 if resp.status_code != 200:
-                    log_handler.warning(f"Image URL returned {resp.status_code}")
+                    log_handler.warning(f"[download_requests] Image URL returned {resp.status_code}")
                     detail = f"Image URL returned {resp.status_code}."
                     if resp.status_code == 403:
                         detail = (
@@ -101,13 +101,13 @@ async def download_requests(
                 async for chunk in resp.aiter_bytes(chunk_size=65536):
                     total += len(chunk)
                     if total > MAX_DOWNLOAD_BYTES:
-                        log_handler.warning(f"Download exceeded max size ({MAX_DOWNLOAD_BYTES})")
+                        log_handler.warning(f"[download_requests] Download exceeded max size ({MAX_DOWNLOAD_BYTES})")
                         raise HTTPException(status_code=502, detail="Image exceeds maximum allowed size.")
                     chunks.append(chunk)
                 body = b"".join(chunks)
     except httpx.RequestError as e:
-        log_handler.error(f"Image download failed: {e}")
+        log_handler.error(f"[download_requests] Image download failed: {e}")
         raise HTTPException(status_code=502, detail="Failed to fetch image from URL.")
 
-    log_handler.info("Image downloaded successfully")
+    log_handler.info(f"[download_requests] Image downloaded successfully")
     return Response(content=body, media_type=content_type)

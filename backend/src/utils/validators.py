@@ -70,7 +70,7 @@ def validate_email_format(email: str) -> bool:
         log_handler.warning(message)
         raise HTTPException(status_code=400, detail=message)
 
-    log_handler.debug(f"Email '{email}' is valid, proceeding")
+    log_handler.debug(f"[validators] Email '{email}' is valid, proceeding")
 
 def validate_password_format(password: str):
     """
@@ -118,7 +118,7 @@ def validate_password_format(password: str):
         log_handler.warning(message)
         raise HTTPException(status_code=400, detail=message)
 
-    log_handler.info("Password is valid") 
+    log_handler.info(f"[validators] Password is valid")
 
 def validate_access_token_format(token: str):
     jwt_regex = r'^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$'

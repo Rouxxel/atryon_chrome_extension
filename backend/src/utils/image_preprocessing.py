@@ -37,7 +37,7 @@ def image_to_base64(image_path: str) -> str:
 
     # Check if the requested path is strictly within the safe directory
     if not requested_path.is_relative_to(IMAGE_SAFE_ZONE):
-        log_handler.error(f"Security Alert: Attempted access outside safe zone: {requested_path}")
+        log_handler.error(f"[image_preprocessing] Security Alert: Attempted access outside safe zone: {requested_path}")
         raise HTTPException(status_code=403, detail="Access to the requested path is forbidden.")
     
     if not requested_path.is_file():
@@ -46,7 +46,7 @@ def image_to_base64(image_path: str) -> str:
     # Read and encode using pathlib for safer file handling
     encoded = base64.b64encode(requested_path.read_bytes()).decode("utf-8")
     
-    log_handler.debug(f"Encoded local image to base64: {requested_path}")
+    log_handler.debug(f"[image_preprocessing] Encoded local image to base64: {requested_path}")
     return encoded
 
 
@@ -77,13 +77,13 @@ def normalize_reference_images(images: List[str]) -> List[str]:
         if is_url(img):
             validate_image_url_safe(img)
             normalized.append(img)
-            log_handler.debug(f"Reference image {i + 1}: using URL")
+            log_handler.debug(f"[image_preprocessing] Reference image {i + 1}: using URL")
         elif is_upload_reference(img):
             upload_id = extract_upload_id(img)
             b64 = resolve_upload(upload_id)
             normalized.append(b64)
-            log_handler.debug(f"Reference image {i + 1}: resolved upload to base64")
+            log_handler.debug(f"[image_preprocessing] Reference image {i + 1}: resolved upload to base64")
         else:
             normalized.append(img)
-            log_handler.debug(f"Reference image {i + 1}: using base64 data")
+            log_handler.debug(f"[image_preprocessing] Reference image {i + 1}: using base64 data")
     return normalized

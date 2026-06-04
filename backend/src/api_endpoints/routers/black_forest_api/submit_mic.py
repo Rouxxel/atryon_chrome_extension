@@ -92,7 +92,7 @@ async def submit_mic(request: Request, body: SubmitMicBody):
     Note:
         If the rate limit is exceeded, the rate_limit_handler() function handles the response.
     """
-    log_handler.debug("Submit MIC request received")
+    log_handler.debug("[submit_mic] Submit MIC request received")
 
     #Normalize reference images (URLs passed through, base64 accepted)
     normalized = normalize_reference_images(body.images)
@@ -124,11 +124,11 @@ async def submit_mic(request: Request, body: SubmitMicBody):
         async with httpx.AsyncClient(timeout=60.0) as client:
             resp = await client.post(url, json=payload, headers=_get_bfl_headers())
     except httpx.RequestError as e:
-        log_handler.error(f"BFL MIC submit request failed: {e}")
+        log_handler.error(f"[submit_mic] BFL MIC submit request failed: {e}")
         raise HTTPException(status_code=502, detail="Failed to reach Black Forest API.")
 
     if resp.status_code != 200:
-        log_handler.warning(f"BFL submit returned {resp.status_code}: {resp.text}")
+        log_handler.warning(f"[submit_mic] BFL submit returned {resp.status_code}: {resp.text}")
         raise HTTPException(status_code=502, detail=f"Black Forest API error: {resp.status_code} - {resp.text}")
 
     data = resp.json()
@@ -136,6 +136,6 @@ async def submit_mic(request: Request, body: SubmitMicBody):
     if not polling_url:
         raise HTTPException(status_code=502, detail="Black Forest API did not return a polling_url.")
 
-    log_handler.info("MIC task submitted successfully")
-    log_handler.warning(f"[MIC] polling_url={polling_url}")
+    log_handler.info("[submit_mic] MIC task submitted successfully")
+    log_handler.warning(f"[submit_mic] polling_url={polling_url}")
     return {"polling_url": polling_url}

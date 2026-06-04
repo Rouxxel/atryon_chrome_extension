@@ -32,7 +32,7 @@ async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
     Returns:
     JSONResponse: A 429 Too Many Requests response with a message explaining the rate limit.
     """
-    log_handler.warning(f"Rate limit exceeded for IP: {request.client.host}")
+    log_handler.warning(f"[request_limiter] Rate limit exceeded for IP: {request.client.host}")
     return JSONResponse(
         status_code=429,
         content={"detail": "Request rate limit exceeded. Please try again later."},

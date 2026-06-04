@@ -42,12 +42,12 @@ from src.api_endpoints.routers.black_forest_api import router as black_forest_ro
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     port = config_loader["network"]["server_port"]
-    log_handler.info(f"REST API Template server starting on port {port}")
+    log_handler.info(f"[main] Atryon server starting on port {port}")
     removed = cleanup_expired()
     if removed:
-        log_handler.info(f"Cleaned up {removed} expired upload(s) on startup")
+        log_handler.info(f"[main] Cleaned up {removed} expired upload(s) on startup")
     yield
-    log_handler.info("REST API Template server shutting down")
+    log_handler.info(f"[main] Atryon server shutting down")
 
 #Create FastAPI app
 app = FastAPI(

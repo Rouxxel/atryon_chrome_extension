@@ -99,7 +99,7 @@ async def submit_idwm(request: Request, body: SubmitIdwmBody):
     Note:
         If the rate limit is exceeded, the rate_limit_handler() function handles the response.
     """
-    log_handler.debug("Submit IDWM (FLUX.1 Fill) request received")
+    log_handler.debug("[submit_idwm] Submit IDWM (FLUX.1 Fill) request received")
 
     #Resolve upload:<id> to base64; validate URLs (SSRF)
     image_value = body.image
@@ -145,11 +145,11 @@ async def submit_idwm(request: Request, body: SubmitIdwmBody):
         async with httpx.AsyncClient(timeout=60.0) as client:
             resp = await client.post(url, json=payload, headers=_get_bfl_headers())
     except httpx.RequestError as e:
-        log_handler.error(f"BFL IDWM submit request failed: {e}")
+        log_handler.error(f"[submit_idwm] BFL IDWM submit request failed: {e}")
         raise HTTPException(status_code=502, detail="Failed to reach Black Forest API.")
 
     if resp.status_code != 200:
-        log_handler.warning(f"BFL IDWM submit returned {resp.status_code}: {resp.text}")
+        log_handler.warning(f"[submit_idwm] BFL IDWM submit returned {resp.status_code}: {resp.text}")
         raise HTTPException(status_code=502, detail=f"Black Forest API error: {resp.status_code} - {resp.text}")
 
     data = resp.json()
@@ -157,6 +157,6 @@ async def submit_idwm(request: Request, body: SubmitIdwmBody):
     if not polling_url:
         raise HTTPException(status_code=502, detail="Black Forest API did not return a polling_url.")
 
-    log_handler.info("IDWM (FLUX.1 Fill) task submitted successfully")
-    log_handler.warning(f"[IDWM] polling_url={polling_url}")
+    log_handler.info("[submit_idwm] IDWM (FLUX.1 Fill) task submitted successfully")
+    log_handler.warning(f"[submit_idwm] polling_url={polling_url}")
     return {"polling_url": polling_url}

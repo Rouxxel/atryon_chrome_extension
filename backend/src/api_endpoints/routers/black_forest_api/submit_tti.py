@@ -80,7 +80,7 @@ async def submit_tti(request: Request, body: SubmitTtiBody):
     This endpoint sends the user prompt to the BFL API and returns a polling_url.
     Prompt length and width/height are limited. Uses async HTTP (no blocking).
     """
-    log_handler.debug("Submit TTI request received")
+    log_handler.debug("[submit_tti] Submit TTI request received")
 
     #Build full prompt with optional TTI prefix from data config
     full_prompt = _build_full_prompt_tti(body.prompt)
@@ -98,11 +98,11 @@ async def submit_tti(request: Request, body: SubmitTtiBody):
         async with httpx.AsyncClient(timeout=60.0) as client:
             resp = await client.post(url, json=payload, headers=_get_bfl_headers())
     except httpx.RequestError as e:
-        log_handler.error(f"BFL TTI submit request failed: {e}")
+        log_handler.error(f"[submit_tti] BFL TTI submit request failed: {e}")
         raise HTTPException(status_code=502, detail="Failed to reach Black Forest API.")
 
     if resp.status_code != 200:
-        log_handler.warning(f"BFL TTI submit returned {resp.status_code}: {resp.text}")
+        log_handler.warning(f"[submit_tti] BFL TTI submit returned {resp.status_code}: {resp.text}")
         raise HTTPException(status_code=502, detail=f"Black Forest API error: {resp.status_code} - {resp.text}")
 
     data = resp.json()
@@ -110,6 +110,6 @@ async def submit_tti(request: Request, body: SubmitTtiBody):
     if not polling_url:
         raise HTTPException(status_code=502, detail="Black Forest API did not return a polling_url.")
 
-    log_handler.info("TTI task submitted successfully")
-    log_handler.warning(f"[TTI] polling_url={polling_url}")
+    log_handler.info("[submit_tti] TTI task submitted successfully")
+    log_handler.warning(f"[submit_tti] polling_url={polling_url}")
     return {"polling_url": polling_url}

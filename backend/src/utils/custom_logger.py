@@ -65,8 +65,8 @@ if not log_handler.hasHandlers():
     log_handler.addHandler(file_handler)
     log_handler.addHandler(console_handler)
 
-log_handler.info("REST API Template server starting")
-log_handler.warning(f"Current working directory: {os.getcwd()}, Logs are written to '{log_file}'")
+log_handler.info("[custom_logger] Atryon server starting")
+log_handler.warning(f"[custom_logger] Current working directory: {os.getcwd()}, Logs are written to '{log_file}'")
 
 #Example usage
 """

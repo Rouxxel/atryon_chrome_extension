@@ -72,7 +72,7 @@ async def polling_requests(
     """
     validate_polling_url_allowed(polling_url, ALLOWED_POLLING_HOSTS)
 
-    log_handler.debug("Polling BFL task")
+    log_handler.debug("[polling_requests] Polling BFL task")
 
     last_exception = None
     last_resp = None
@@ -84,11 +84,11 @@ async def polling_requests(
         except httpx.RequestError as e:
             last_exception = e
             log_handler.error(
-                "BFL poll request failed (full error): polling_url=%s attempt=%s error_type=%s error=%s",
+                "[polling_requests] BFL poll request failed (full error): polling_url=%s attempt=%s error_type=%s error=%s",
                 polling_url, attempt, type(e).__name__, repr(e), exc_info=True
             )
             if attempt < POLLING_RETRY_ATTEMPTS:
-                log_handler.warning("Retrying BFL poll in %.1fs (attempt %s/%s)", POLLING_RETRY_DELAY_SEC, attempt + 1, POLLING_RETRY_ATTEMPTS)
+                log_handler.warning("[polling_requests] Retrying BFL poll in %.1fs (attempt %s/%s)", POLLING_RETRY_DELAY_SEC, attempt + 1, POLLING_RETRY_ATTEMPTS)
                 await asyncio.sleep(POLLING_RETRY_DELAY_SEC)
                 continue
             raise HTTPException(status_code=502, detail="Failed to reach Black Forest API.")
@@ -96,17 +96,17 @@ async def polling_requests(
         if resp.status_code != 200:
             last_resp = resp
             log_handler.error(
-                "BFL poll returned non-200 (full response): polling_url=%s attempt=%s status_code=%s body=%s",
+                "[polling_requests] BFL poll returned non-200 (full response): polling_url=%s attempt=%s status_code=%s body=%s",
                 polling_url, attempt, resp.status_code, resp.text
             )
             if attempt < POLLING_RETRY_ATTEMPTS:
-                log_handler.warning("Retrying BFL poll in %.1fs (attempt %s/%s)", POLLING_RETRY_DELAY_SEC, attempt + 1, POLLING_RETRY_ATTEMPTS)
+                log_handler.warning("[polling_requests] Retrying BFL poll in %.1fs (attempt %s/%s)", POLLING_RETRY_DELAY_SEC, attempt + 1, POLLING_RETRY_ATTEMPTS)
                 await asyncio.sleep(POLLING_RETRY_DELAY_SEC)
                 continue
             raise HTTPException(status_code=502, detail=f"Black Forest API error: {resp.status_code} - {resp.text}")
 
         data = resp.json()
-        log_handler.debug("Poll result status: %s", data.get("status"))
+        log_handler.debug("[polling_requests] Poll result status: %s", data.get("status"))
         return data
 
     raise HTTPException(status_code=502, detail="Polling failed after retries.")

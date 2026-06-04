@@ -50,5 +50,5 @@ async def root_endpoint(request: Request):
     Note:
         If the rate limit is exceeded, the rate_limit_handler() function handles the response.
     """
-    log_handler.debug("Backend running successfully")
+    log_handler.debug("[root_endpoint] Backend running successfully")
     return {"message": "Backend running successfully, ready to use other endpoints"}

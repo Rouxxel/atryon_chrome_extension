@@ -44,6 +44,6 @@ public_pem = public_key.public_bytes(
 with open("public_key.pem", "wb") as f:
     f.write(public_pem)
 
-log_handler.info("✅ Keys generated successfully!")
-log_handler.info("Private key saved as private_key.pem")
-log_handler.info("Public key saved as public_key.pem")
+log_handler.info("[keys_generator] Keys generated successfully!")
+log_handler.info("[keys_generator] Private key saved as private_key.pem")
+log_handler.info("[keys_generator] Public key saved as public_key.pem")

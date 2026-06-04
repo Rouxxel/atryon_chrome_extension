@@ -66,7 +66,7 @@ async def upload_images(request: Request, files: list[UploadFile] = File(..., de
         except HTTPException:
             raise
         except Exception as e:
-            log_handler.error(f"Upload failed: {e}")
+            log_handler.error(f"[upload_images] Upload failed: {e}")
             raise HTTPException(status_code=500, detail="Upload failed.")
-    log_handler.info(f"Uploaded {len(upload_ids)} image(s)")
+    log_handler.info(f"[upload_images] Uploaded {len(upload_ids)} image(s)")
     return {"upload_ids": upload_ids, "expires_in_seconds": UPLOAD_TTL}

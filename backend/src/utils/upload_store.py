@@ -86,7 +86,7 @@ def register(file_bytes: bytes, content_type: str | None) -> str:
     temp_path = _temp_dir() / f"{upload_id}.bin"
     temp_path.write_bytes(file_bytes)
     _store[upload_id] = (str(temp_path), time.time())
-    log_handler.debug(f"Registered upload {upload_id}")
+    log_handler.debug(f"[upload_store] Registered upload {upload_id}")
     return upload_id
 
 
@@ -121,9 +121,9 @@ def resolve(upload_id: str) -> str:
         try:
             path.unlink()
         except OSError:
-            log_handler.warning(f"Could not delete upload file: {path}")
+            log_handler.warning(f"[upload_store] Could not delete upload file: {path}")
         del _store[upload_id]
-    log_handler.debug(f"Resolved and consumed upload {upload_id}")
+    log_handler.debug(f"[upload_store] Resolved and consumed upload {upload_id}")
     return b64
 
 
@@ -159,5 +159,5 @@ def cleanup_expired() -> int:
             del _store[uid]
             removed += 1
     if removed:
-        log_handler.debug(f"Cleanup: removed {removed} expired upload(s)")
+        log_handler.debug(f"[upload_store] Cleanup: removed {removed} expired upload(s)")
     return removed
