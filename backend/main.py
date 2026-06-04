@@ -87,6 +87,6 @@ if __name__ == "__main__":
         proxy_headers=config_loader["network"]["proxy_headers"]
     )
     
-    log_handler(f"Loaded configuration: \n {config_loader["defaults"]}")
-    log_handler(f"Loaded data: \n {data_loader["metadata"]}")
+    log_handler.info(f"[main] Loaded configuration: \n {config_loader["defaults"]}")
+    log_handler.info(f"[main] Loaded data: \n {data_loader["metadata"]}")
     #available at: http://127.0.0.1:8000/docs
