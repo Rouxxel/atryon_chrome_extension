@@ -2,6 +2,9 @@
 
 Chrome extension for **virtual try-on**: pick a garment (from the page or by drag-and-drop), add your photo, and get an AI-generated try-on result. The extension uses a **backend API** that runs FLUX (Black Forest Labs) for multi-image composition.
 
+[VIDEO DEMO](https://youtu.be/chbujM2-rrA)
+
+
 ## Repository structure
 
 | Path | Description |
