@@ -24,6 +24,7 @@ from pydantic import BaseModel, Field
 #Other files imports
 from src.utils.custom_logger import log_handler
 from src.utils.limiter import limiter as SlowLimiter
+from src.utils.validators import validate_prompt_safe
 from src.core_specs.configuration.config_loader import config_loader
 from src.core_specs.data.data_loader import data_loader
 
@@ -82,8 +83,11 @@ async def submit_tti(request: Request, body: SubmitTtiBody):
     """
     log_handler.debug("[submit_tti] Submit TTI request received")
 
+    #Sanitize prompt (strip control chars, enforce max length)
+    sanitized_prompt = validate_prompt_safe(body.prompt, BF_CFG.get("max_prompt_length", 400))
+
     #Build full prompt with optional TTI prefix from data config
-    full_prompt = _build_full_prompt_tti(body.prompt)
+    full_prompt = _build_full_prompt_tti(sanitized_prompt)
 
     #Build BFL request URL and payload (no input_image for text-to-image)
     flux2 = BF_CFG.get("flux2", {})
