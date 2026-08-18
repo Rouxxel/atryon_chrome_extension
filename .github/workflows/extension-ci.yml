@@ -33,23 +33,27 @@ jobs:
 
       - name: Run ESLint
         run: |
-          npm install eslint@latest --no-save
-          cat <<'EOF' > .eslintrc.json
-          {
-            "env": {
-              "browser": true,
-              "webextensions": true,
-              "es2022": true
-            },
-            "parserOptions": {
-              "ecmaVersion": "latest",
-              "sourceType": "module"
-            },
-            "rules": {
-              "no-unused-vars": "warn",
-              "no-undef": "error"
+          npm install eslint@latest globals@latest --no-save
+          cat <<'EOF' > eslint.config.js
+          import globals from "globals";
+          export default [
+            {
+              files: ["chr_exten/**/*.js"],
+              languageOptions: {
+                ecmaVersion: "latest",
+                sourceType: "script",
+                globals: {
+                  ...globals.browser,
+                  ...globals.webextensions,
+                  chrome: "readonly",
+                }
+              },
+              rules: {
+                "no-unused-vars": "warn",
+                "no-undef": "error",
+              }
             }
-          }
+          ];
           EOF
           npx eslint chr_exten/*.js
 
