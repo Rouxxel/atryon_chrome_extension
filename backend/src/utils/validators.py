@@ -11,6 +11,7 @@ This module defines several methods to validate several things.
 """
 #Native imports
 import re
+import unicodedata
 from urllib.parse import urlparse
 
 #Other files imports
@@ -188,3 +189,299 @@ def validate_image_url_safe(url: str) -> None:
     host = (parsed.hostname or "").lower()
     if _is_private_host(host):
         raise HTTPException(status_code=400, detail="Image URL must not point to private or localhost.")
+
+
+def validate_request_size(content_length: int | None, max_bytes: int | None = None) -> None:
+    """
+    Validate that a request body does not exceed the configured maximum size.
+
+    Checks Content-Length header against the configured maximum upload size.
+    If Content-Length is provided and exceeds the limit, rejects with HTTP 400
+    before reading the body. If max_bytes is not provided, reads the limit from
+    data config (file_upload.max_upload_bytes), defaulting to 10 MB.
+
+    Args:
+        content_length: The value of the Content-Length header, or None if absent.
+        max_bytes: Optional override for the maximum allowed size in bytes.
+
+    Raises:
+        HTTPException: 400 if the request body exceeds the allowed size limit.
+        SystemExit: If the configured max size is not a positive integer.
+    """
+    # Resolve max_bytes from config if not explicitly provided
+    if max_bytes is None:
+        max_bytes = data_loader.get("file_upload", {}).get(
+            "max_upload_bytes", 10485760
+        )
+
+    # Requirement 5.4: refuse to operate if configured value is invalid
+    if not isinstance(max_bytes, int) or max_bytes <= 0:
+        log_handler.critical(
+            "[validators] Invalid max upload size configuration: "
+            "value must be a positive integer"
+        )
+        raise SystemExit(
+            "Invalid max upload size configuration: "
+            "value must be a positive integer"
+        )
+
+    # Requirement 5.1: reject if Content-Length exceeds configured max
+    if content_length is not None:
+        if not isinstance(content_length, int) or content_length < 0:
+            raise HTTPException(
+                status_code=400,
+                detail="Request body exceeds the allowed size limit."
+            )
+        if content_length > max_bytes:
+            log_handler.warning(
+                "[validators] Request rejected: Content-Length exceeds allowed size"
+            )
+            raise HTTPException(
+                status_code=400,
+                detail="Request body exceeds the allowed size limit."
+            )
+
+    log_handler.debug(
+        "[validators] Request size validation passed"
+    )
+
+
+# Magic bytes signatures for supported image content types
+MAGIC_BYTES: dict[str, dict] = {
+    "image/jpeg": {
+        "header": bytes([0xFF, 0xD8, 0xFF]),
+        "offset": 0,
+    },
+    "image/png": {
+        "header": bytes([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]),
+        "offset": 0,
+    },
+    "image/webp": {
+        "header": bytes([0x52, 0x49, 0x46, 0x46]),
+        "offset": 0,
+        "secondary_header": bytes([0x57, 0x45, 0x42, 0x50]),
+        "secondary_offset": 8,
+    },
+}
+
+
+def validate_file_magic_bytes(
+    file_bytes: bytes, claimed_content_type: str
+) -> None:
+    """
+    Validate that a file's leading bytes match the expected magic bytes
+    for the claimed content-type.
+
+    Raises HTTPException(400) if:
+    - The content-type is not supported
+    - The file is empty (0 bytes)
+    - The file is shorter than the required signature length
+    - The magic bytes do not match the claimed content-type
+
+    Error messages are generic and do not reveal internal details.
+
+    Args:
+        file_bytes: The raw bytes of the uploaded file.
+        claimed_content_type: The MIME type claimed by the upload.
+
+    Returns:
+        None. Raises HTTPException on failure.
+    """
+    # Reject unsupported content-types
+    if claimed_content_type not in MAGIC_BYTES:
+        log_handler.warning(
+            "[validators] Unsupported content-type for magic byte validation"
+        )
+        raise HTTPException(
+            status_code=400,
+            detail="Unsupported file type.",
+        )
+
+    # Reject empty files
+    if len(file_bytes) == 0:
+        log_handler.warning("[validators] Empty file uploaded")
+        raise HTTPException(
+            status_code=400,
+            detail="File is empty.",
+        )
+
+    signature = MAGIC_BYTES[claimed_content_type]
+    header = signature["header"]
+    offset = signature["offset"]
+
+    # Calculate minimum required length
+    min_length = offset + len(header)
+    if "secondary_header" in signature:
+        secondary_end = (
+            signature["secondary_offset"] + len(signature["secondary_header"])
+        )
+        min_length = max(min_length, secondary_end)
+
+    # Reject files shorter than the signature length
+    if len(file_bytes) < min_length:
+        log_handler.warning(
+            "[validators] File too short for magic byte validation"
+        )
+        raise HTTPException(
+            status_code=400,
+            detail="File is too small to be a valid image.",
+        )
+
+    # Verify primary header bytes
+    actual_header = file_bytes[offset:offset + len(header)]
+    if actual_header != header:
+        log_handler.warning(
+            "[validators] Magic byte mismatch for claimed content-type"
+        )
+        raise HTTPException(
+            status_code=400,
+            detail="File content does not match the declared file type.",
+        )
+
+    # Verify secondary header (for WebP)
+    if "secondary_header" in signature:
+        sec_header = signature["secondary_header"]
+        sec_offset = signature["secondary_offset"]
+        actual_secondary = file_bytes[sec_offset:sec_offset + len(sec_header)]
+        if actual_secondary != sec_header:
+            log_handler.warning(
+                "[validators] Secondary magic byte mismatch "
+                "for claimed content-type"
+            )
+            raise HTTPException(
+                status_code=400,
+                detail="File content does not match the declared file type.",
+            )
+
+
+def validate_prompt_safe(prompt: str, max_length: int) -> str:
+    """
+    Sanitize and validate a user-submitted prompt.
+
+    Steps:
+      1. Remove null bytes and Unicode control characters (category C),
+         preserving newline (U+000A), carriage return (U+000D),
+         tab (U+0009), and space (U+0020).
+      2. Collapse consecutive whitespace into a single space.
+      3. Strip leading/trailing whitespace.
+      4. Reject empty prompts with HTTP 400.
+      5. Reject prompts exceeding max_length with HTTP 400.
+
+    Args:
+        prompt: The raw prompt string from the user.
+        max_length: Maximum allowed character length after sanitization.
+
+    Returns:
+        The sanitized prompt string.
+
+    Raises:
+        HTTPException: 400 if prompt is empty or exceeds max length.
+    """
+    # Preserve these characters even though they are in Unicode category C
+    ALLOWED_CONTROL = {'\n', '\r', '\t'}
+
+    # Step 1: Remove null bytes and control characters (Unicode category C)
+    sanitized = []
+    for ch in prompt:
+        if ch == ' ':
+            sanitized.append(ch)
+        elif ch in ALLOWED_CONTROL:
+            sanitized.append(ch)
+        elif unicodedata.category(ch).startswith('C'):
+            continue  # Remove control characters
+        else:
+            sanitized.append(ch)
+    sanitized_str = ''.join(sanitized)
+
+    # Step 2: Collapse consecutive whitespace into a single space
+    sanitized_str = re.sub(r'\s+', ' ', sanitized_str)
+
+    # Step 3: Strip leading and trailing whitespace
+    sanitized_str = sanitized_str.strip()
+
+    # Step 4: Reject empty prompts
+    if not sanitized_str:
+        log_handler.warning("[validators] Prompt rejected: empty after sanitization")
+        raise HTTPException(
+            status_code=400,
+            detail="Prompt must not be empty."
+        )
+
+    # Step 5: Reject prompts exceeding configured max length
+    if len(sanitized_str) > max_length:
+        log_handler.warning("[validators] Prompt rejected: exceeds maximum allowed length")
+        raise HTTPException(
+            status_code=400,
+            detail="Prompt exceeds the maximum allowed length."
+        )
+
+    # Step 6: Return sanitized string for downstream use
+    return sanitized_str
+
+
+def validate_download_url_allowed(url: str) -> None:
+    """
+    SSRF check for download URLs: HTTPS only, host in allowlist, no private IPs.
+
+    Validates that:
+      1. URL is parseable (has scheme and host)
+      2. Scheme is HTTPS
+      3. Host is in the configured allowed_download_hosts
+      4. Host is not a private/loopback/link-local/reserved address
+
+    Raises HTTPException(400) with a generic message on any failure.
+
+    Args:
+        url: The download URL to validate.
+
+    Returns:
+        None. Raises HTTPException on failure.
+    """
+    allowed_download_hosts = set(
+        data_loader.get("image_ai_providers", {})
+        .get("black_forest", {})
+        .get("allowed_download_hosts", [])
+    )
+
+    # 1. Check URL is parseable (has scheme and host)
+    parsed = urlparse(url)
+    if not parsed.scheme or not parsed.hostname:
+        log_handler.warning(
+            "[validators] Download URL rejected: not parseable"
+        )
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid download URL."
+        )
+
+    # 2. Check scheme is HTTPS
+    if parsed.scheme != "https":
+        log_handler.warning(
+            "[validators] Download URL rejected: scheme is not HTTPS"
+        )
+        raise HTTPException(
+            status_code=400,
+            detail="Download URL must be HTTPS."
+        )
+
+    host = (parsed.hostname or "").lower()
+
+    # 3. Check host is in allowed_download_hosts
+    if not host or host not in allowed_download_hosts:
+        log_handler.warning(
+            "[validators] Download URL rejected: host not in allowlist"
+        )
+        raise HTTPException(
+            status_code=400,
+            detail="Download URL host not allowed."
+        )
+
+    # 4. Check host is not private using _is_private_host()
+    if _is_private_host(host):
+        log_handler.warning(
+            "[validators] Download URL rejected: host is private/reserved"
+        )
+        raise HTTPException(
+            status_code=400,
+            detail="Download URL must not point to private or localhost."
+        )
