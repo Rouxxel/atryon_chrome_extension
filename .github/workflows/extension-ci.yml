@@ -1,0 +1,111 @@
+name: Extension CI
+
+on:
+  pull_request:
+    paths:
+      - "chr_exten/**"
+      - ".github/workflows/extension-ci.yml"
+  push:
+    branches: [main]
+    paths:
+      - "chr_exten/**"
+      - ".github/workflows/extension-ci.yml"
+
+concurrency:
+  group: extension-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Run ESLint
+        run: |
+          npm install eslint@latest --no-save
+          cat <<'EOF' > .eslintrc.json
+          {
+            "env": {
+              "browser": true,
+              "webextensions": true,
+              "es2022": true
+            },
+            "parserOptions": {
+              "ecmaVersion": "latest",
+              "sourceType": "module"
+            },
+            "rules": {
+              "no-unused-vars": "warn",
+              "no-undef": "error"
+            }
+          }
+          EOF
+          npx eslint chr_exten/*.js
+
+      - name: Validate manifest.json
+        run: |
+          node -e "
+            const fs = require('fs');
+            const manifest = JSON.parse(fs.readFileSync('chr_exten/manifest.json', 'utf8'));
+            const errors = [];
+
+            if (manifest.manifest_version !== 3) {
+              errors.push('manifest_version must be 3, got: ' + manifest.manifest_version);
+            }
+            if (!manifest.name) {
+              errors.push('Missing required key: name');
+            }
+            if (!manifest.version) {
+              errors.push('Missing required key: version');
+            }
+            if (!manifest.permissions) {
+              errors.push('Missing required key: permissions');
+            }
+
+            if (errors.length > 0) {
+              console.error('Manifest validation failed:');
+              errors.forEach(e => console.error('  - ' + e));
+              process.exit(1);
+            }
+            console.log('manifest.json validation passed');
+          "
+
+      - name: Scan for hardcoded URLs and secrets
+        run: |
+          echo "Checking for hardcoded backend URLs in JS files..."
+          # Match http:// or https:// URLs that are NOT localhost or 127.0.0.1
+          if grep -Pn 'https?://(?!localhost|127\.0\.0\.1)[a-zA-Z0-9]' chr_exten/*.js; then
+            echo "::error::Found hardcoded backend URLs in JavaScript files"
+            exit 1
+          fi
+
+          echo "Checking for secret-like patterns..."
+          if grep -Pni '(api[_-]?key|api[_-]?secret|token\s*=|secret\s*=|password\s*=|auth[_-]?token)' chr_exten/*.js; then
+            echo "::error::Found secret-like patterns in JavaScript files"
+            exit 1
+          fi
+
+          echo "No hardcoded URLs or secrets found"
+
+      - name: Verify no inline script tags (CSP compliance)
+        run: |
+          echo "Checking HTML files for inline script tags..."
+          # Match <script> tags that contain code (not just src references)
+          # Inline scripts are <script>...</script> with content between tags
+          if grep -Pn '<script(?![^>]*\bsrc\b)[^>]*>(?!\s*</script>)' chr_exten/*.html; then
+            echo "::error::Found inline <script> tags in HTML files (CSP violation for MV3)"
+            exit 1
+          fi
+
+          echo "No inline script tags found — CSP compliant"

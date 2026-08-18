@@ -1,0 +1,60 @@
+name: Backend CI
+
+on:
+  pull_request:
+    paths:
+      - "backend/**"
+      - ".github/workflows/backend-ci.yml"
+  push:
+    branches: [main]
+    paths:
+      - "backend/**"
+      - ".github/workflows/backend-ci.yml"
+
+concurrency:
+  group: backend-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  backend-ci:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r backend/requirements.txt
+          pip install ruff bandit pytest
+
+      - name: Ruff lint check
+        run: ruff check backend/
+
+      - name: Ruff format check
+        run: ruff format --check backend/
+
+      - name: Bandit SAST scan
+        run: bandit -r backend/src/ -ll
+
+      - name: Run pytest
+        run: |
+          if [ -d "backend/tests" ]; then
+            pytest backend/tests/ -v
+          else
+            echo "No tests directory found — skipping pytest"
+          fi
+
+      - name: Verify Docker build
+        run: docker build -f backend/Dockerfile -t atryon-backend:ci backend/
