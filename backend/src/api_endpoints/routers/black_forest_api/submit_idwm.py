@@ -26,7 +26,7 @@ from pydantic import BaseModel, Field
 #Other files imports
 from src.utils.custom_logger import log_handler
 from src.utils.limiter import limiter as SlowLimiter
-from src.utils.validators import is_url, validate_image_url_safe
+from src.utils.validators import is_url, validate_image_url_safe, validate_prompt_safe
 from src.utils.upload_store import is_upload_reference, extract_upload_id, resolve as resolve_upload
 from src.core_specs.configuration.config_loader import config_loader
 from src.core_specs.data.data_loader import data_loader
@@ -117,8 +117,11 @@ async def submit_idwm(request: Request, body: SubmitIdwmBody):
     else:
         mask_value = None
 
+    #Sanitize prompt (strip control chars, enforce max length)
+    sanitized_prompt = validate_prompt_safe(body.prompt, BF_CFG.get("max_prompt_length", 400))
+
     #Build full prompt with optional inpainting prefix from data config
-    full_prompt = _build_full_prompt_fill(body.prompt)
+    full_prompt = _build_full_prompt_fill(sanitized_prompt)
 
     #Build BFL request URL (FLUX.1 Fill model, not FLUX.2)
     base_url = os.getenv(BF_CFG["base_url_env"]) or BF_CFG["base_url_default"]

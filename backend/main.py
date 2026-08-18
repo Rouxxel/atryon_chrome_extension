@@ -17,7 +17,8 @@ from contextlib import asynccontextmanager
 
 #Third-party imports
 import uvicorn
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 from slowapi.errors import RateLimitExceeded
 from dotenv import load_dotenv
 load_dotenv()
@@ -27,6 +28,9 @@ from src.utils.request_limiter import rate_limit_handler
 from src.utils.custom_logger import log_handler
 from src.utils.limiter import limiter
 from src.utils.upload_store import cleanup_expired
+from src.utils.startup_validator import validate_startup_config
+from src.middleware.security_headers import SecurityHeadersMiddleware
+from src.middleware.cors_config import configure_cors
 
 #Json files
 from src.core_specs.configuration.config_loader import config_loader
@@ -41,6 +45,7 @@ from src.api_endpoints.routers.black_forest_api import router as black_forest_ro
 #Lifespan event manager (startup and shutdown)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    validate_startup_config()
     port = config_loader["network"]["server_port"]
     log_handler.info(f"[main] Atryon server starting on port {port}")
     removed = cleanup_expired()
@@ -63,6 +68,26 @@ app.state.limiter = limiter
 
 #Add global exception handler for rate limits
 app.add_exception_handler(RateLimitExceeded, rate_limit_handler)
+
+#Add global exception handler for unhandled exceptions
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    """Catch all unhandled exceptions and return a generic 500 response.
+    Logs exception details server-side without leaking internals to clients."""
+    log_handler.error(
+        f"[main] Unhandled exception on {request.method} {request.url.path}: "
+        f"{type(exc).__name__}: {exc}"
+    )
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal server error"}
+    )
+
+#CORS middleware (added before security headers so it is inner in the stack)
+configure_cors(app)
+
+#Security headers middleware (added last so it executes first — outermost in the stack)
+app.add_middleware(SecurityHeadersMiddleware)
 
 """Routers-----------------------------------------------------------"""
 #Root
