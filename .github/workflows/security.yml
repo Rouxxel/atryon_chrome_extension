@@ -59,6 +59,8 @@ jobs:
           severity: "CRITICAL,HIGH"
           exit-code: "1"
           format: "table"
+          vuln-type: "library"
+          scanners: "vuln"
 
   dependency-review:
     name: Dependency Review
