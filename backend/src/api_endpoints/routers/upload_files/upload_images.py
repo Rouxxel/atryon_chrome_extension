@@ -18,6 +18,7 @@ from fastapi import APIRouter, Request, HTTPException, UploadFile, File
 from src.utils.custom_logger import log_handler
 from src.utils.limiter import limiter as SlowLimiter
 from src.utils.upload_store import register
+from src.utils.validators import validate_file_magic_bytes
 from src.core_specs.configuration.config_loader import config_loader
 from src.core_specs.data.data_loader import data_loader
 
@@ -38,6 +39,7 @@ async def _process_file(file: UploadFile) -> str:
     body = await file.read()
     if not body:
         raise HTTPException(status_code=400, detail="Empty file not allowed.")
+    validate_file_magic_bytes(body, content_type)
     return register(body, content_type)
 
 
