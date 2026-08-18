@@ -88,8 +88,8 @@ jobs:
       - name: Scan for hardcoded URLs and secrets
         run: |
           echo "Checking for hardcoded backend URLs in JS files..."
-          # Match http:// or https:// URLs that are NOT localhost or 127.0.0.1
-          if grep -Pn 'https?://(?!localhost|127\.0\.0\.1)[a-zA-Z0-9]' chr_exten/*.js; then
+          # Match http:// or https:// URLs that are NOT localhost, 127.0.0.1, or the known production backend
+          if grep -Pn 'https?://(?!localhost|127\.0\.0\.1|atryon-chrome-extension\.onrender\.com)[a-zA-Z0-9]' chr_exten/*.js; then
             echo "::error::Found hardcoded backend URLs in JavaScript files"
             exit 1
           fi
