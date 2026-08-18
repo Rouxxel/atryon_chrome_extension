@@ -11,7 +11,8 @@ This module loads configuration data from a JSON file.
 It reads the file, parses JSON, and instantiates variables
 for other modules to access essential settings.
 """
-#Native imports
+
+# Native imports
 import json
 import sys
 
@@ -45,8 +46,10 @@ def read_data_from_config_json(file_path: str, exit_on_error: bool = True) -> di
             return None
 
 """VARIABLES-----------------------------------------------------------"""
-#Path to your config JSON file
-CONFIG_FILE_PATH = "src/core_specs/configuration/config_file.json" #Put file beside this one
+# Path to your config JSON file
+CONFIG_FILE_PATH = (
+    "src/core_specs/configuration/config_file.json"  # Put file beside this one
+)
 
-#Load the entire configuration data, the one to be used
+# Load the entire configuration data, the one to be used
 config_loader = read_data_from_config_json(CONFIG_FILE_PATH, exit_on_error=True)

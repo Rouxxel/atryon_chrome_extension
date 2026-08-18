@@ -12,16 +12,16 @@ request to Black Forest Labs (BFL). It returns the polling_url for the client
 to poll until the task is ready.
 """
 
-#Native imports
+# Native imports
 import os
 from typing import Optional
 
-#Third-party imports
+# Third-party imports
 import httpx
 from fastapi import APIRouter, Request, HTTPException
 from pydantic import BaseModel, Field
 
-#Other files imports
+# Other files imports
 from src.utils.custom_logger import log_handler
 from src.utils.limiter import limiter as SlowLimiter
 from src.utils.image_preprocessing import normalize_reference_images
@@ -30,7 +30,7 @@ from src.core_specs.configuration.config_loader import config_loader
 from src.core_specs.data.data_loader import data_loader
 
 """VARIABLES-----------------------------------------------------------"""
-#Black Forest provider data (model, dimensions, prompt prefix, etc.)
+# Black Forest provider data (model, dimensions, prompt prefix, etc.)
 BF_CFG = data_loader["image_ai_providers"]["black_forest"]
 MIN_DIMENSION = 512
 MAX_DIMENSION = 2048
@@ -42,7 +42,7 @@ def _get_bfl_headers() -> dict:
     if not api_key:
         raise HTTPException(
             status_code=503,
-            detail="Black Forest API key not configured. Set the environment variable."
+            detail="Black Forest API key not configured. Set the environment variable.",
         )
     return {"x-key": api_key, "Content-Type": "application/json"}
 
@@ -56,21 +56,31 @@ def _build_full_prompt(user_prompt: str) -> str:
 class SubmitMicBody(BaseModel):
     """Request body: user prompt, list of image URLs or base64 strings, optional dimensions."""
 
-    prompt: str = Field(..., min_length=1, description="User prompt for multi-image composition")
-    images: list[str] = Field(..., min_length=2, description="List of image URLs or base64-encoded image data")
-    width: Optional[int] = Field(None, ge=MIN_DIMENSION, le=MAX_DIMENSION, description="Output width 512–2048")
-    height: Optional[int] = Field(None, ge=MIN_DIMENSION, le=MAX_DIMENSION, description="Output height 512–2048")
+    prompt: str = Field(
+        ..., min_length=1, description="User prompt for multi-image composition"
+    )
+    images: list[str] = Field(
+        ..., min_length=2, description="List of image URLs or base64-encoded image data"
+    )
+    width: Optional[int] = Field(
+        None, ge=MIN_DIMENSION, le=MAX_DIMENSION, description="Output width 512–2048"
+    )
+    height: Optional[int] = Field(
+        None, ge=MIN_DIMENSION, le=MAX_DIMENSION, description="Output height 512–2048"
+    )
 
 
 """API ROUTER-----------------------------------------------------------"""
 router = APIRouter(
-    prefix=config_loader['endpoints']['mic_endpoint']['endpoint_prefix'],
-    tags=[config_loader['endpoints']['mic_endpoint']['endpoint_tag']],
+    prefix=config_loader["endpoints"]["mic_endpoint"]["endpoint_prefix"],
+    tags=[config_loader["endpoints"]["mic_endpoint"]["endpoint_tag"]],
 )
 
 """ENDPOINT-----------------------------------------------------------"""
+
+
 # Submit multi-image composition job to BFL FLUX.2
-@router.post(config_loader['endpoints']['mic_endpoint']['endpoint_route'])
+@router.post(config_loader["endpoints"]["mic_endpoint"]["endpoint_route"])
 @SlowLimiter.limit(
     f"{config_loader['endpoints']['mic_endpoint']['request_limit']}/"
     f"{config_loader['endpoints']['mic_endpoint']['unit_of_time_for_limit']}"
@@ -95,16 +105,18 @@ async def submit_mic(request: Request, body: SubmitMicBody):
     """
     log_handler.debug("[submit_mic] Submit MIC request received")
 
-    #Normalize reference images (URLs passed through, base64 accepted)
+    # Normalize reference images (URLs passed through, base64 accepted)
     normalized = normalize_reference_images(body.images)
 
-    #Sanitize prompt (strip control chars, enforce max length)
-    sanitized_prompt = validate_prompt_safe(body.prompt, BF_CFG.get("max_prompt_length", 400))
+    # Sanitize prompt (strip control chars, enforce max length)
+    sanitized_prompt = validate_prompt_safe(
+        body.prompt, BF_CFG.get("max_prompt_length", 400)
+    )
 
-    #Build full prompt with optional prefix from data config
+    # Build full prompt with optional prefix from data config
     full_prompt = _build_full_prompt(sanitized_prompt)
 
-    #Build BFL request URL and payload
+    # Build BFL request URL and payload
     flux2 = BF_CFG.get("flux2", {})
     base_url = os.getenv(BF_CFG["base_url_env"]) or BF_CFG["base_url_default"]
     model = flux2.get("default_model", "flux-2-klein-4b")
@@ -123,7 +135,7 @@ async def submit_mic(request: Request, body: SubmitMicBody):
         "output_format": flux2.get("output_format", "jpeg"),
     }
 
-    #Submit request to BFL (async)
+    # Submit request to BFL (async)
     try:
         async with httpx.AsyncClient(timeout=60.0) as client:
             resp = await client.post(url, json=payload, headers=_get_bfl_headers())
@@ -132,13 +144,20 @@ async def submit_mic(request: Request, body: SubmitMicBody):
         raise HTTPException(status_code=502, detail="Failed to reach Black Forest API.")
 
     if resp.status_code != 200:
-        log_handler.warning(f"[submit_mic] BFL submit returned {resp.status_code}: {resp.text}")
-        raise HTTPException(status_code=502, detail=f"Black Forest API error: {resp.status_code} - {resp.text}")
+        log_handler.warning(
+            f"[submit_mic] BFL submit returned {resp.status_code}: {resp.text}"
+        )
+        raise HTTPException(
+            status_code=502,
+            detail=f"Black Forest API error: {resp.status_code} - {resp.text}",
+        )
 
     data = resp.json()
     polling_url = data.get("polling_url")
     if not polling_url:
-        raise HTTPException(status_code=502, detail="Black Forest API did not return a polling_url.")
+        raise HTTPException(
+            status_code=502, detail="Black Forest API did not return a polling_url."
+        )
 
     log_handler.info("[submit_mic] MIC task submitted successfully")
     log_handler.warning(f"[submit_mic] polling_url={polling_url}")

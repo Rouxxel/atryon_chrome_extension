@@ -12,10 +12,10 @@ the backend is up and running correctly. It serves as a health check and
 does not perform any other operation.
 """
 
-#Third-party imports
+# Third-party imports
 from fastapi import APIRouter, Request
 
-#Other files imports
+# Other files imports
 from src.utils.custom_logger import log_handler
 from src.utils.limiter import limiter as SlowLimiter
 from src.core_specs.configuration.config_loader import config_loader
@@ -23,13 +23,15 @@ from src.core_specs.configuration.config_loader import config_loader
 """API ROUTER-----------------------------------------------------------"""
 # Get API router
 router = APIRouter(
-    prefix=config_loader['endpoints']['root_directory_endpoint']['endpoint_prefix'],
-    tags=[config_loader['endpoints']['root_directory_endpoint']['endpoint_tag']],
+    prefix=config_loader["endpoints"]["root_directory_endpoint"]["endpoint_prefix"],
+    tags=[config_loader["endpoints"]["root_directory_endpoint"]["endpoint_tag"]],
 )
 
 """ENDPOINT-----------------------------------------------------------"""
+
+
 # Check if app works
-@router.get(config_loader['endpoints']['root_directory_endpoint']['endpoint_route'])
+@router.get(config_loader["endpoints"]["root_directory_endpoint"]["endpoint_route"])
 @SlowLimiter.limit(
     f"{config_loader['endpoints']['root_directory_endpoint']['request_limit']}/"
     f"{config_loader['endpoints']['root_directory_endpoint']['unit_of_time_for_limit']}"
@@ -46,7 +48,7 @@ async def root_endpoint(request: Request):
 
     Returns:
         dict: A JSON response indicating that the API is running.
-    
+
     Note:
         If the rate limit is exceeded, the rate_limit_handler() function handles the response.
     """

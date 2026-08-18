@@ -51,7 +51,10 @@ async def _process_file(file: UploadFile) -> str:
     f"{config_loader['endpoints']['upload_images_endpoint']['request_limit']}/"
     f"{config_loader['endpoints']['upload_images_endpoint']['unit_of_time_for_limit']}"
 )
-async def upload_images(request: Request, files: list[UploadFile] = File(..., description="One or more image files")):
+async def upload_images(
+    request: Request,
+    files: list[UploadFile] = File(..., description="One or more image files"),
+):
     """
     Upload one or more images. Returns upload_ids to use in MIC/IDWM as "upload:<id>".
     Each file is validated (content-type, max size) and stored temporarily (one-time use).

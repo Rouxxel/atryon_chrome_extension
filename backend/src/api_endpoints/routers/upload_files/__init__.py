@@ -10,10 +10,10 @@
 Aggregates upload files endpoints.
 """
 
-#Third-party imports
+# Third-party imports
 from fastapi import APIRouter
 
-#Other files imports (local routers)
+# Other files imports (local routers)
 from .upload_images import router as upload_images_router
 
 """ROUTER AGGREGATION-----------------------------------------------------------"""

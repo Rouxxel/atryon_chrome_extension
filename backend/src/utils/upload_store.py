@@ -51,7 +51,9 @@ def _max_bytes() -> int:
 
 
 def _allowed_content_types() -> set:
-    types = _upload_config().get("allowed_upload_content_types", ["image/jpeg", "image/png", "image/webp"])
+    types = _upload_config().get(
+        "allowed_upload_content_types", ["image/jpeg", "image/png", "image/webp"]
+    )
     return set(types)
 
 
@@ -72,15 +74,14 @@ def register(file_bytes: bytes, content_type: str | None) -> str:
     max_b = _max_bytes()
     if len(file_bytes) > max_b:
         raise HTTPException(
-            status_code=400,
-            detail=f"File exceeds maximum size ({max_b} bytes)."
+            status_code=400, detail=f"File exceeds maximum size ({max_b} bytes)."
         )
     allowed = _allowed_content_types()
     ct = (content_type or "").strip().lower()
     if ct and ct not in allowed:
         raise HTTPException(
             status_code=400,
-            detail=f"Content-Type not allowed. Allowed: {list(allowed)}."
+            detail=f"Content-Type not allowed. Allowed: {list(allowed)}.",
         )
     upload_id = str(uuid.uuid4())
     temp_path = _temp_dir() / f"{upload_id}.bin"
@@ -129,14 +130,18 @@ def resolve(upload_id: str) -> str:
 
 def is_upload_reference(value: str) -> bool:
     """True if value is "upload:<uuid>"."""
-    return isinstance(value, str) and value.startswith(UPLOAD_PREFIX) and len(value) > len(UPLOAD_PREFIX)
+    return (
+        isinstance(value, str)
+        and value.startswith(UPLOAD_PREFIX)
+        and len(value) > len(UPLOAD_PREFIX)
+    )
 
 
 def extract_upload_id(value: str) -> str:
     """Return the UUID part of "upload:<uuid>"."""
     if not is_upload_reference(value):
         raise ValueError(f"Not an upload reference: {value!r}")
-    return value[len(UPLOAD_PREFIX):].strip()
+    return value[len(UPLOAD_PREFIX) :].strip()
 
 
 def cleanup_expired() -> int:
@@ -159,5 +164,7 @@ def cleanup_expired() -> int:
             del _store[uid]
             removed += 1
     if removed:
-        log_handler.debug(f"[upload_store] Cleanup: removed {removed} expired upload(s)")
+        log_handler.debug(
+            f"[upload_store] Cleanup: removed {removed} expired upload(s)"
+        )
     return removed

@@ -11,7 +11,8 @@ This module loads general data from a JSON file.
 It reads the file, parses JSON, and instantiates variables
 for other modules to access essential settings.
 """
-#Native imports
+
+# Native imports
 import json
 import sys
 
@@ -45,8 +46,8 @@ def read_data_from_data_json(file_path: str, exit_on_error: bool = True) -> dict
             return None
 
 """VARIABLES-----------------------------------------------------------"""
-#Path to your config JSON file
+# Path to your config JSON file
 DATA_FILE_PATH = "src/core_specs/data/general_data.json"
 
-#Load the entire data, the one to be used
+# Load the entire data, the one to be used
 data_loader = read_data_from_data_json(DATA_FILE_PATH, exit_on_error=True)

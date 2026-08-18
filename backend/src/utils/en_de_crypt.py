@@ -10,25 +10,25 @@
 This utility provides methods to encrypt and decrypt strings
 """
 
-#Native imports
+# Native imports
 import os
 import json
 from base64 import b64encode, b64decode
 
-#Third-party imports
+# Third-party imports
 from cryptography.hazmat.primitives import serialization, hashes
 from cryptography.hazmat.primitives.asymmetric import padding
 
-#Other files imports
+# Other files imports
 from src.utils.custom_logger import log_handler
 
 """VARIABLES-----------------------------------------------------------"""
-#Get api key from environment
+# Get api key from environment
 E_PRIVATE_KEY = os.getenv("E_PRIVATE_KEY")
 E_PRIVATE_PASSWORD = os.getenv("E_PRIVATE_PASSWORD")
 E_PUBLIC_KEY = os.getenv("E_PUBLIC_KEY")
 
-#Check just in case
+# Check just in case
 if not E_PRIVATE_KEY:
     raise RuntimeError("E_PRIVATE_KEY environment variable is not set.")
 if not E_PRIVATE_PASSWORD:
@@ -37,22 +37,19 @@ if not E_PUBLIC_KEY:
     raise RuntimeError("E_PUBLIC_KEY environment variable is not set.")
 
 """LOADER METHODS -----------------------------------------------------"""
-#Load the private key once
+# Load the private key once
 try:
     _private_key = serialization.load_pem_private_key(
-        E_PRIVATE_KEY.encode(),
-        password=E_PRIVATE_PASSWORD.encode()
+        E_PRIVATE_KEY.encode(), password=E_PRIVATE_PASSWORD.encode()
     )
     log_handler.info("[en_de_crypt] Private key loaded successfully.")
 except Exception as e:
     log_handler.error(f"[en_de_crypt] Failed to load private key: {e}")
     raise
 
-#Load the public key once
+# Load the public key once
 try:
-    _public_key = serialization.load_pem_public_key(
-        E_PUBLIC_KEY.encode()
-    )
+    _public_key = serialization.load_pem_public_key(E_PUBLIC_KEY.encode())
     log_handler.info("[en_de_crypt] Public key loaded successfully.")
 except Exception as e:
     log_handler.error(f"[en_de_crypt] Failed to load public key: {e}")
@@ -65,19 +62,19 @@ def encrypt_in(message) -> str:
     Non-string data will be converted to string automatically.
     Returns Base64 encoded encrypted data.
     """
-    #Convert dict/list/etc to JSON string
+    # Convert dict/list/etc to JSON string
     if isinstance(message, (dict, list)):
         message = json.dumps(message)
     else:
         message = str(message)
-    
+
     encrypted = _public_key.encrypt(
         message.encode(),
         padding.OAEP(
             mgf=padding.MGF1(algorithm=hashes.SHA256()),
             algorithm=hashes.SHA256(),
-            label=None
-        )
+            label=None,
+        ),
     )
     log_handler.debug("[en_de_crypt] Encryption successful")
     return b64encode(encrypted).decode()
@@ -86,14 +83,14 @@ def encrypt_in(message) -> str:
 def decrypt_out(token: str, dtype: str = "str"):
     """
     Decrypt a Base64 encoded string using the loaded private key.
-    
+
     Parameters:
         token (str): Base64 encoded encrypted data.
         dtype (str): specify the original type ("str", "int", "float", "bool", "dict", "list")
-    
+
     Returns:
         The decrypted data in the specified type.
-    
+
     Raises:
         ValueError: if an unsupported dtype is provided.
     """
@@ -102,18 +99,18 @@ def decrypt_out(token: str, dtype: str = "str"):
         padding.OAEP(
             mgf=padding.MGF1(algorithm=hashes.SHA256()),
             algorithm=hashes.SHA256(),
-            label=None
-        )
+            label=None,
+        ),
     ).decode()
 
-    #Mapping of dtype to conversion function
+    # Mapping of dtype to conversion function
     type_map = {
         "str": str,
         "int": int,
         "float": float,
         "bool": lambda x: x.lower() in ("true", "1"),
         "dict": json.loads,
-        "list": json.loads
+        "list": json.loads,
     }
 
     if dtype not in type_map:

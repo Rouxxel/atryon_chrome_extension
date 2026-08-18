@@ -13,12 +13,12 @@ bytes (so the client can save the file). SSRF-protected via allowlist; async
 fetch with max size limit.
 """
 
-#Third-party imports
+# Third-party imports
 import httpx
 from fastapi import APIRouter, Request, HTTPException, Query
 from fastapi.responses import Response
 
-#Other files imports
+# Other files imports
 from src.utils.custom_logger import log_handler
 from src.utils.limiter import limiter as SlowLimiter
 from src.utils.validators import validate_download_url_allowed
@@ -28,25 +28,31 @@ from src.core_specs.data.data_loader import data_loader
 """VARIABLES-----------------------------------------------------------"""
 BF_CFG = data_loader["image_ai_providers"]["black_forest"]
 MAX_DOWNLOAD_BYTES = BF_CFG.get("max_download_bytes", 10 * 1024 * 1024)  # 10 MB default
-DOWNLOAD_HEADERS = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
+DOWNLOAD_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+}
 
 
 """API ROUTER-----------------------------------------------------------"""
 router = APIRouter(
-    prefix=config_loader['endpoints']['download_requests_endpoint']['endpoint_prefix'],
-    tags=[config_loader['endpoints']['download_requests_endpoint']['endpoint_tag']],
+    prefix=config_loader["endpoints"]["download_requests_endpoint"]["endpoint_prefix"],
+    tags=[config_loader["endpoints"]["download_requests_endpoint"]["endpoint_tag"]],
 )
 
 """ENDPOINT-----------------------------------------------------------"""
+
+
 # Download image from signed URL (result['sample'] from polling)
-@router.get(config_loader['endpoints']['download_requests_endpoint']['endpoint_route'])
+@router.get(config_loader["endpoints"]["download_requests_endpoint"]["endpoint_route"])
 @SlowLimiter.limit(
     f"{config_loader['endpoints']['download_requests_endpoint']['request_limit']}/"
     f"{config_loader['endpoints']['download_requests_endpoint']['unit_of_time_for_limit']}"
 )
 async def download_requests(
     request: Request,
-    url: str = Query(..., description="Signed image URL from polling result (result['sample'])"),
+    url: str = Query(
+        ..., description="Signed image URL from polling result (result['sample'])"
+    ),
 ):
     """
     Download the generated image from the given signed URL.
@@ -63,7 +69,9 @@ async def download_requests(
         async with httpx.AsyncClient(timeout=60.0) as client:
             async with client.stream("GET", url, headers=DOWNLOAD_HEADERS) as resp:
                 if resp.status_code != 200:
-                    log_handler.warning(f"[download_requests] Image URL returned {resp.status_code}")
+                    log_handler.warning(
+                        f"[download_requests] Image URL returned {resp.status_code}"
+                    )
                     detail = f"Image URL returned {resp.status_code}."
                     if resp.status_code == 403:
                         detail = (
@@ -78,13 +86,18 @@ async def download_requests(
                 async for chunk in resp.aiter_bytes(chunk_size=65536):
                     total += len(chunk)
                     if total > MAX_DOWNLOAD_BYTES:
-                        log_handler.warning(f"[download_requests] Download exceeded max size ({MAX_DOWNLOAD_BYTES})")
-                        raise HTTPException(status_code=502, detail="Image exceeds maximum allowed size.")
+                        log_handler.warning(
+                            f"[download_requests] Download exceeded max size ({MAX_DOWNLOAD_BYTES})"
+                        )
+                        raise HTTPException(
+                            status_code=502,
+                            detail="Image exceeds maximum allowed size.",
+                        )
                     chunks.append(chunk)
                 body = b"".join(chunks)
     except httpx.RequestError as e:
         log_handler.error(f"[download_requests] Image download failed: {e}")
         raise HTTPException(status_code=502, detail="Failed to fetch image from URL.")
 
-    log_handler.info(f"[download_requests] Image downloaded successfully")
+    log_handler.info("[download_requests] Image downloaded successfully")
     return Response(content=body, media_type=content_type)

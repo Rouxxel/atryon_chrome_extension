@@ -19,7 +19,6 @@ from src.utils.custom_logger import log_handler
 from src.core_specs.configuration.config_loader import config_loader
 from src.core_specs.data.data_loader import data_loader
 
-
 def validate_startup_config() -> None:
     """
     Validate critical startup configuration.
@@ -47,16 +46,12 @@ def validate_startup_config() -> None:
     bfl_config = data_loader["image_ai_providers"]["black_forest"]
     polling_hosts = bfl_config.get("allowed_polling_hosts", [])
     if not polling_hosts:
-        errors.append(
-            "Configuration 'allowed_polling_hosts' is empty or not defined"
-        )
+        errors.append("Configuration 'allowed_polling_hosts' is empty or not defined")
 
     # Check allowed_download_hosts
     download_hosts = bfl_config.get("allowed_download_hosts", [])
     if not download_hosts:
-        errors.append(
-            "Configuration 'allowed_download_hosts' is empty or not defined"
-        )
+        errors.append("Configuration 'allowed_download_hosts' is empty or not defined")
 
     # Check all endpoint rate limits are positive integers
     endpoints = config_loader.get("endpoints", {})
@@ -72,6 +67,4 @@ def validate_startup_config() -> None:
     if errors:
         for error in errors:
             log_handler.critical("[startup_validator] %s", error)
-        raise SystemExit(
-            f"Startup validation failed with {len(errors)} error(s)"
-        )
+        raise SystemExit(f"Startup validation failed with {len(errors)} error(s)")

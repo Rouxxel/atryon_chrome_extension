@@ -7,7 +7,7 @@
 ### @date: 2025
 #############################################################################
 
-This module contains a method to handle when a user exceeds the x number of 
+This module contains a method to handle when a user exceeds the x number of
 allowed requests per x minutes/seconds
 """
 
@@ -21,8 +21,8 @@ async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
     """
     Handles requests that exceed the allowed rate limit.
 
-    This function is triggered when a client sends too many requests within a given 
-    time frame, as defined by the rate limiting middleware. Usually is X requests 
+    This function is triggered when a client sends too many requests within a given
+    time frame, as defined by the rate limiting middleware. Usually is X requests
     per minute.
 
     Parameters:
@@ -32,7 +32,9 @@ async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
     Returns:
     JSONResponse: A 429 Too Many Requests response with a message explaining the rate limit.
     """
-    log_handler.warning(f"[request_limiter] Rate limit exceeded for IP: {request.client.host}")
+    log_handler.warning(
+        f"[request_limiter] Rate limit exceeded for IP: {request.client.host}"
+    )
     return JSONResponse(
         status_code=429,
         content={"detail": "Request rate limit exceeded. Please try again later."},

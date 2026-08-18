@@ -13,33 +13,35 @@ be shared anywhere.
 The parameters used can be tinkered as desired
 """
 
-#Third-party imports
+# Third-party imports
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives import serialization
 
-#Other files imports
+# Other files imports
 from src.utils.custom_logger import log_handler
 
-#Generate private key
+# Generate private key
 private_key = rsa.generate_private_key(
-    public_exponent=65537, #Can be changed
-    key_size=2048 #Can be modified
+    public_exponent=65537,  # Can be changed
+    key_size=2048,  # Can be modified
 )
-#Generate public key from private key
+# Generate public key from private key
 public_key = private_key.public_key()
 
-#Export keys as PEM
+# Export keys as PEM
 private_pem = private_key.private_bytes(
     encoding=serialization.Encoding.PEM,
-    format=serialization.PrivateFormat.TraditionalOpenSSL,  #PKCS#1
-    encryption_algorithm=serialization.BestAvailableEncryption(b"PASSWORD_HERE") #Can be without password
+    format=serialization.PrivateFormat.TraditionalOpenSSL,  # PKCS#1
+    encryption_algorithm=serialization.BestAvailableEncryption(
+        b"PASSWORD_HERE"
+    ),  # Can be without password
 )
 with open("private_key.pem", "wb") as f:
     f.write(private_pem)
 
 public_pem = public_key.public_bytes(
     encoding=serialization.Encoding.PEM,
-    format=serialization.PublicFormat.SubjectPublicKeyInfo
+    format=serialization.PublicFormat.SubjectPublicKeyInfo,
 )
 with open("public_key.pem", "wb") as f:
     f.write(public_pem)
