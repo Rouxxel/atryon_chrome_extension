@@ -11,6 +11,7 @@ This module defines several methods to validate several things.
 """
 
 # Native imports
+import hashlib
 import re
 import unicodedata
 from urllib.parse import urlparse
@@ -356,8 +357,14 @@ def validate_file_magic_bytes(file_bytes: bytes, claimed_content_type: str) -> N
             )
 
 
+# Content-policy blocklists live in general_data.json only (banned_keywords and optional
+# banned_keywords_hate / banned_keywords_explicit). Update lists there; do not echo
+# terms in logs, README examples, or commit messages.
 _BF_CFG = data_loader["image_ai_providers"]["black_forest"]
 _ALLOWED_PROMPT_CONTROL = {"\n", "\r", "\t"}
+_CONTENT_POLICY_REJECT_DETAIL = "Prompt not allowed."
+_PROMPT_EMPTY_DETAIL = "Prompt must not be empty."
+_PROMPT_LENGTH_DETAIL = "Prompt exceeds the maximum allowed length."
 _LEETSPEAK_MAP = str.maketrans(
     {
         "0": "o",
@@ -393,7 +400,47 @@ def _normalize_prompt_for_policy_check(text: str) -> str:
     nfkd = unicodedata.normalize("NFKD", text)
     without_marks = "".join(c for c in nfkd if not unicodedata.combining(c))
     normalized = without_marks.translate(_LEETSPEAK_MAP).lower()
-    return re.sub(r"\s+", " ", normalized).strip()
+    normalized = re.sub(r"\s+", " ", normalized).strip()
+    return _apply_evasion_normalization(normalized)
+
+
+def _apply_evasion_normalization(text: str) -> str:
+    """
+    Harden matching against common evasion tactics.
+
+    - Remove punctuation between letters (e.g. n.a.z.i -> nazi)
+    - Collapse runs of 3+ repeated characters to a single character
+    """
+    without_punctuation = re.sub(r"[^\w\s]", "", text)
+    collapsed = re.sub(r"(.)\1{2,}", r"\1", without_punctuation)
+    return re.sub(r"\s+", " ", collapsed).strip()
+
+
+def _hash_normalized_prompt_for_log(normalized_text: str) -> str:
+    """Return a SHA-256 hex digest for audit logs without storing raw prompt text."""
+    return hashlib.sha256(normalized_text.encode("utf-8")).hexdigest()
+
+
+def _get_merged_banned_keywords() -> list[str]:
+    """
+    Merge banned keyword lists from config.
+
+    Supports a single `banned_keywords` list plus optional split lists
+    (`banned_keywords_hate`, `banned_keywords_explicit`). Duplicates are removed
+    while preserving order. Maintain lists only in general_data.json.
+    """
+    merged: list[str] = []
+    seen: set[str] = set()
+    for key in ("banned_keywords", "banned_keywords_hate", "banned_keywords_explicit"):
+        for term in _BF_CFG.get(key) or []:
+            if not term or not str(term).strip():
+                continue
+            normalized_term = str(term).strip().lower()
+            if normalized_term in seen:
+                continue
+            seen.add(normalized_term)
+            merged.append(str(term).strip())
+    return merged
 
 
 def check_banned_keywords(normalized_text: str, banned_list: list[str]) -> bool:
@@ -420,23 +467,32 @@ def check_banned_keywords(normalized_text: str, banned_list: list[str]) -> bool:
     return False
 
 
-def _enforce_content_policy(sanitized_str: str) -> None:
+def _enforce_content_policy(sanitized_str: str, endpoint: str | None = None) -> None:
     """Raise HTTP 400 when content policy is enabled and a banned keyword matches."""
     if not sanitized_str:
         return
 
     policy_enabled = _BF_CFG.get("content_policy_enabled", False)
-    banned_keywords = _BF_CFG.get("banned_keywords") or []
+    banned_keywords = _get_merged_banned_keywords()
     if not policy_enabled or not banned_keywords:
         return
 
     normalized = _normalize_prompt_for_policy_check(sanitized_str)
     if check_banned_keywords(normalized, banned_keywords):
-        log_handler.warning("[validators] Prompt rejected: content policy violation")
-        raise HTTPException(status_code=400, detail="Prompt not allowed.")
+        log_handler.warning(
+            "[validators] reason=content_policy_keyword endpoint=%s prompt_hash=%s",
+            endpoint or "unknown",
+            _hash_normalized_prompt_for_log(normalized),
+        )
+        raise HTTPException(status_code=400, detail=_CONTENT_POLICY_REJECT_DETAIL)
 
 
-def validate_prompt_safe(prompt: str, max_length: int, allow_empty: bool = False) -> str:
+def validate_prompt_safe(
+    prompt: str,
+    max_length: int,
+    allow_empty: bool = False,
+    endpoint: str | None = None,
+) -> str:
     """
     Sanitize and validate a user-submitted prompt.
 
@@ -466,25 +522,33 @@ def validate_prompt_safe(prompt: str, max_length: int, allow_empty: bool = False
     if not sanitized_str:
         if allow_empty:
             return ""
-        log_handler.warning("[validators] Prompt rejected: empty after sanitization")
-        raise HTTPException(status_code=400, detail="Prompt must not be empty.")
+        log_handler.warning(
+            "[validators] reason=prompt_empty endpoint=%s",
+            endpoint or "unknown",
+        )
+        raise HTTPException(status_code=400, detail=_PROMPT_EMPTY_DETAIL)
 
-    _enforce_content_policy(sanitized_str)
+    _enforce_content_policy(sanitized_str, endpoint=endpoint)
 
     if len(sanitized_str) > max_length:
         log_handler.warning(
-            "[validators] Prompt rejected: exceeds maximum allowed length"
+            "[validators] reason=prompt_too_long endpoint=%s length=%s max_length=%s",
+            endpoint or "unknown",
+            len(sanitized_str),
+            max_length,
         )
-        raise HTTPException(
-            status_code=400, detail="Prompt exceeds the maximum allowed length."
-        )
+        raise HTTPException(status_code=400, detail=_PROMPT_LENGTH_DETAIL)
 
     return sanitized_str
 
 
-def validate_prompt_safe_for_mic(prompt: str, max_length: int) -> str:
+def validate_prompt_safe_for_mic(
+    prompt: str, max_length: int, endpoint: str | None = "MIC"
+) -> str:
     """Validate MIC user instructions; optional whitespace-only prompts are allowed."""
-    return validate_prompt_safe(prompt, max_length, allow_empty=True)
+    return validate_prompt_safe(
+        prompt, max_length, allow_empty=True, endpoint=endpoint
+    )
 
 
 def validate_download_url_allowed(url: str) -> None:

@@ -102,7 +102,7 @@ async def submit_tti(request: Request, body: SubmitTtiBody):
 
     # Sanitize prompt (strip control chars, enforce max length)
     sanitized_prompt = validate_prompt_safe(
-        body.prompt, BF_CFG.get("max_prompt_length", 400)
+        body.prompt, BF_CFG.get("max_prompt_length", 400), endpoint="TTI"
     )
 
     # Build full prompt with optional TTI prefix from data config

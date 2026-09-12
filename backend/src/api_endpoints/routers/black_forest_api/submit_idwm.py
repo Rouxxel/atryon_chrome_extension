@@ -136,7 +136,7 @@ async def submit_idwm(request: Request, body: SubmitIdwmBody):
 
     # Sanitize prompt (strip control chars, enforce max length)
     sanitized_prompt = validate_prompt_safe(
-        body.prompt, BF_CFG.get("max_prompt_length", 400)
+        body.prompt, BF_CFG.get("max_prompt_length", 400), endpoint="IDWM"
     )
 
     # Build full prompt with optional inpainting prefix from data config
