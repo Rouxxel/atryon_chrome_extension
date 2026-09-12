@@ -57,7 +57,9 @@ class SubmitMicBody(BaseModel):
     """Request body: user prompt, list of image URLs or base64 strings, optional dimensions."""
 
     prompt: str = Field(
-        ..., min_length=1, description="User prompt for multi-image composition"
+        default="",
+        max_length=512,
+        description="Optional user instructions for multi-image composition",
     )
     images: list[str] = Field(
         ..., min_length=2, description="List of image URLs or base64-encoded image data"
