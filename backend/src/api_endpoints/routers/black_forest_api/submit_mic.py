@@ -25,6 +25,7 @@ from pydantic import BaseModel, Field
 from src.utils.custom_logger import log_handler
 from src.utils.limiter import limiter as SlowLimiter
 from src.utils.image_preprocessing import normalize_reference_images
+from src.utils.bfl_helpers import get_flux2_safety_tolerance, handle_bfl_submit_response
 from src.utils.validators import validate_prompt_safe_for_mic
 from src.core_specs.configuration.config_loader import config_loader
 from src.core_specs.data.data_loader import data_loader
@@ -133,7 +134,7 @@ async def submit_mic(request: Request, body: SubmitMicBody):
         "input_image_4": normalized[3] if len(normalized) > 3 else None,
         "width": width,
         "height": height,
-        "safety_tolerance": flux2.get("safety_tolerance", 2),
+        "safety_tolerance": get_flux2_safety_tolerance(flux2),
         "output_format": flux2.get("output_format", "jpeg"),
     }
 
@@ -145,22 +146,6 @@ async def submit_mic(request: Request, body: SubmitMicBody):
         log_handler.error(f"[submit_mic] BFL MIC submit request failed: {e}")
         raise HTTPException(status_code=502, detail="Failed to reach Black Forest API.")
 
-    if resp.status_code != 200:
-        log_handler.warning(
-            f"[submit_mic] BFL submit returned {resp.status_code}: {resp.text}"
-        )
-        raise HTTPException(
-            status_code=502,
-            detail=f"Black Forest API error: {resp.status_code} - {resp.text}",
-        )
-
-    data = resp.json()
-    polling_url = data.get("polling_url")
-    if not polling_url:
-        raise HTTPException(
-            status_code=502, detail="Black Forest API did not return a polling_url."
-        )
-
+    data = handle_bfl_submit_response("MIC", resp)
     log_handler.info("[submit_mic] MIC task submitted successfully")
-    log_handler.warning(f"[submit_mic] polling_url={polling_url}")
-    return {"polling_url": polling_url}
+    return {"polling_url": data["polling_url"]}

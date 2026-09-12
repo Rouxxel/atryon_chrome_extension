@@ -24,6 +24,7 @@ from pydantic import BaseModel, Field
 # Other files imports
 from src.utils.custom_logger import log_handler
 from src.utils.limiter import limiter as SlowLimiter
+from src.utils.bfl_helpers import get_flux2_safety_tolerance, handle_bfl_submit_response
 from src.utils.validators import validate_prompt_safe
 from src.core_specs.configuration.config_loader import config_loader
 from src.core_specs.data.data_loader import data_loader
@@ -115,7 +116,13 @@ async def submit_tti(request: Request, body: SubmitTtiBody):
     url = f"{base_url.rstrip('/')}/{model}"
     width = body.width if body.width is not None else flux2.get("width", 1024)
     height = body.height if body.height is not None else flux2.get("height", 1024)
-    payload = {"prompt": full_prompt, "width": width, "height": height}
+    payload = {
+        "prompt": full_prompt,
+        "width": width,
+        "height": height,
+        "safety_tolerance": get_flux2_safety_tolerance(flux2),
+        "output_format": flux2.get("output_format", "jpeg"),
+    }
 
     try:
         async with httpx.AsyncClient(timeout=60.0) as client:
@@ -124,22 +131,6 @@ async def submit_tti(request: Request, body: SubmitTtiBody):
         log_handler.error(f"[submit_tti] BFL TTI submit request failed: {e}")
         raise HTTPException(status_code=502, detail="Failed to reach Black Forest API.")
 
-    if resp.status_code != 200:
-        log_handler.warning(
-            f"[submit_tti] BFL TTI submit returned {resp.status_code}: {resp.text}"
-        )
-        raise HTTPException(
-            status_code=502,
-            detail=f"Black Forest API error: {resp.status_code} - {resp.text}",
-        )
-
-    data = resp.json()
-    polling_url = data.get("polling_url")
-    if not polling_url:
-        raise HTTPException(
-            status_code=502, detail="Black Forest API did not return a polling_url."
-        )
-
+    data = handle_bfl_submit_response("TTI", resp)
     log_handler.info("[submit_tti] TTI task submitted successfully")
-    log_handler.warning(f"[submit_tti] polling_url={polling_url}")
-    return {"polling_url": polling_url}
+    return {"polling_url": data["polling_url"]}

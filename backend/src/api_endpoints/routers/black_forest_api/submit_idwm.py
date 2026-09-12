@@ -26,6 +26,10 @@ from pydantic import BaseModel, Field
 # Other files imports
 from src.utils.custom_logger import log_handler
 from src.utils.limiter import limiter as SlowLimiter
+from src.utils.bfl_helpers import (
+    get_flux1_fill_safety_tolerance,
+    handle_bfl_submit_response,
+)
 from src.utils.validators import is_url, validate_image_url_safe, validate_prompt_safe
 from src.utils.upload_store import (
     is_upload_reference,
@@ -153,7 +157,7 @@ async def submit_idwm(request: Request, body: SubmitIdwmBody):
         "steps": FLUX1_FILL_CFG.get("steps", 50),
         "guidance": FLUX1_FILL_CFG.get("guidance", 60),
         "output_format": FLUX1_FILL_CFG.get("output_format", "jpeg"),
-        "safety_tolerance": FLUX1_FILL_CFG.get("safety_tolerance", 2),
+        "safety_tolerance": get_flux1_fill_safety_tolerance(FLUX1_FILL_CFG),
     }
     if mask_value is not None:
         payload["mask"] = mask_value
@@ -170,22 +174,6 @@ async def submit_idwm(request: Request, body: SubmitIdwmBody):
         log_handler.error(f"[submit_idwm] BFL IDWM submit request failed: {e}")
         raise HTTPException(status_code=502, detail="Failed to reach Black Forest API.")
 
-    if resp.status_code != 200:
-        log_handler.warning(
-            f"[submit_idwm] BFL IDWM submit returned {resp.status_code}: {resp.text}"
-        )
-        raise HTTPException(
-            status_code=502,
-            detail=f"Black Forest API error: {resp.status_code} - {resp.text}",
-        )
-
-    data = resp.json()
-    polling_url = data.get("polling_url")
-    if not polling_url:
-        raise HTTPException(
-            status_code=502, detail="Black Forest API did not return a polling_url."
-        )
-
+    data = handle_bfl_submit_response("IDWM", resp)
     log_handler.info("[submit_idwm] IDWM (FLUX.1 Fill) task submitted successfully")
-    log_handler.warning(f"[submit_idwm] polling_url={polling_url}")
-    return {"polling_url": polling_url}
+    return {"polling_url": data["polling_url"]}
