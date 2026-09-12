@@ -74,6 +74,9 @@
     if (message.indexOf('maximum allowed length') !== -1) {
       return 'Instructions are too long (max ' + MAX_PROMPT_LENGTH + ' characters).';
     }
+    if (message.indexOf('Request could not be completed') !== -1) {
+      return 'Request could not be completed. Please try different instructions or images.';
+    }
     return message;
   }
 
