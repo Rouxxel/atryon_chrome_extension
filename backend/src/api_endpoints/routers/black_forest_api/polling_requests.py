@@ -21,6 +21,7 @@ import httpx
 from fastapi import APIRouter, Request, HTTPException, Query
 
 # Other files imports
+from src.utils.bfl_helpers import BFL_CLIENT_ERROR_DETAIL, handle_bfl_poll_payload
 from src.utils.custom_logger import log_handler
 from src.utils.limiter import limiter as SlowLimiter
 from src.utils.validators import validate_polling_url_allowed
@@ -123,15 +124,12 @@ async def polling_requests(
                 )
                 await asyncio.sleep(POLLING_RETRY_DELAY_SEC)
                 continue
-            raise HTTPException(
-                status_code=502,
-                detail=f"Black Forest API error: {resp.status_code} - {resp.text}",
-            )
+            raise HTTPException(status_code=502, detail=BFL_CLIENT_ERROR_DETAIL)
 
         data = resp.json()
         log_handler.debug(
             "[polling_requests] Poll result status: %s", data.get("status")
         )
-        return data
+        return handle_bfl_poll_payload(polling_url, data)
 
     raise HTTPException(status_code=502, detail="Polling failed after retries.")
