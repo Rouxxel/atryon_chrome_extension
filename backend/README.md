@@ -126,6 +126,30 @@ Optional clamps per model block: `safety_tolerance_min` / `safety_tolerance_max`
 
 Provider-side moderation failures are logged server-side (with `polling_url` / task id when available) and returned to clients as a generic **"Request could not be completed."** message. In-process counters (`content_policy_keyword`, `bfl_submit_*`, `bfl_poll_*`) are logged on each event for lightweight monitoring.
 
+## Upload validation and image limits (v1)
+
+`POST /upload/images` validates each file before storage:
+
+- Allowed types: JPEG, PNG, WebP (`file_upload.allowed_upload_content_types`)
+- Magic-byte verification (declared or detected MIME)
+- Size: `min_upload_bytes` – `max_upload_bytes` per file
+- Dimensions: `min_image_dimension` – `max_image_dimension` per side (default 64–4096 px)
+- At most `max_files_per_upload` files per request (default 4)
+
+**Text keyword filtering does not scan image content.** See `notes/image_safety_scope.md` for v1 limits and future image-moderation options.
+
+## Rate limits (try-on bundle)
+
+Per-minute limits in `config_file.json` are aligned for a typical try-on flow (validate → upload → MIC → poll → download):
+
+| Endpoint | Default limit |
+|----------|----------------|
+| `POST /upload/images` | 10 |
+| `POST /bf_fl/mic` | 6 |
+| `POST /bf_fl/validate_prompt` | 10 |
+| `GET /bf_fl/polling_requests` | 30 |
+| `GET /bf_fl/download_requests` | 30 |
+
 Environment (`.env` / `.env.local`):
 
 - **`BFL_API_KEY`** – Required for all BFL endpoints.
