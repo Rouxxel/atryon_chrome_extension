@@ -78,6 +78,8 @@
                 "width": 1024,
                 "height": 1024,
                 "safety_tolerance": 2,
+                "safety_tolerance_min": 0,
+                "safety_tolerance_max": 6,
                 "output_format": "jpeg",
                 "max_input_images": 4,
                 "min_input_images": 2,
@@ -92,6 +94,8 @@
                 "steps": 50,
                 "guidance": 60,
                 "safety_tolerance": 2,
+                "safety_tolerance_min": 0,
+                "safety_tolerance_max": 6,
                 "output_format": "jpeg",
                 "default_prompt_prefix_idwm": "Edit the original image only within the white area of the mask image, the black area of the mask must remain completely unchanged. Seamlessly blend the edited region with the surrounding image, matching the original lighting, shadows, perspective, color and texture. The required changes are: "
             }
