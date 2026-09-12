@@ -18,13 +18,15 @@ from fastapi import APIRouter, Request, HTTPException, UploadFile, File
 from src.utils.custom_logger import log_handler
 from src.utils.limiter import limiter as SlowLimiter
 from src.utils.upload_store import register
-from src.utils.validators import validate_file_magic_bytes
+from src.utils.validators import validate_request_size, validate_upload_file_bytes
 from src.core_specs.configuration.config_loader import config_loader
 from src.core_specs.data.data_loader import data_loader
 
 """VARIABLES-----------------------------------------------------------"""
 FILE_UPLOAD_CFG = data_loader.get("file_upload", {})
 UPLOAD_TTL = FILE_UPLOAD_CFG.get("upload_temp_ttl_seconds", 600)
+MAX_FILES_PER_UPLOAD = FILE_UPLOAD_CFG.get("max_files_per_upload", 4)
+MAX_UPLOAD_BYTES = FILE_UPLOAD_CFG.get("max_upload_bytes", 10485760)
 
 """API ROUTER-----------------------------------------------------------"""
 router = APIRouter(
@@ -35,11 +37,10 @@ router = APIRouter(
 
 async def _process_file(file: UploadFile) -> str:
     """Validate and register one file; return upload_id."""
-    content_type = file.content_type or ""
     body = await file.read()
     if not body:
         raise HTTPException(status_code=400, detail="Empty file not allowed.")
-    validate_file_magic_bytes(body, content_type)
+    content_type = validate_upload_file_bytes(body, file.content_type)
     return register(body, content_type)
 
 
@@ -61,6 +62,21 @@ async def upload_images(
     """
     if not files:
         raise HTTPException(status_code=400, detail="At least one file required.")
+    if len(files) > MAX_FILES_PER_UPLOAD:
+        raise HTTPException(
+            status_code=400,
+            detail=f"At most {MAX_FILES_PER_UPLOAD} files per upload request.",
+        )
+
+    content_length = request.headers.get("content-length")
+    if content_length is not None:
+        try:
+            parsed_length = int(content_length)
+        except ValueError:
+            parsed_length = None
+        max_request_bytes = MAX_UPLOAD_BYTES * MAX_FILES_PER_UPLOAD
+        validate_request_size(parsed_length, max_bytes=max_request_bytes)
+
     upload_ids = []
     for f in files:
         if not f.filename and not f.content_type:
