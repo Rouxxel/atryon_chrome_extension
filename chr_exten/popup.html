@@ -40,8 +40,9 @@
     </section>
 
     <section class="prompt-section">
-      <label for="promptInput" class="prompt-label">Extra instructions (optional)</label>
-      <textarea id="promptInput" class="prompt-input" rows="2" placeholder="e.g. Keep my pose, natural lighting"></textarea>
+      <label for="promptInput" class="prompt-label">Extra try-on instructions (optional)</label>
+      <textarea id="promptInput" class="prompt-input" rows="2" maxlength="400" placeholder="e.g. Keep my pose, natural lighting, relaxed fit"></textarea>
+      <p class="prompt-hint">Only used for clothing try-on. Other requests are not allowed.</p>
     </section>
 
     <button type="button" id="tryOn" class="btn btn-primary">Try on</button>

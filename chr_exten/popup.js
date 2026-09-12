@@ -8,6 +8,8 @@
   const POLL_MAX_ATTEMPTS = 60;
   const POLL_REQUEST_RETRIES = 3;
   const POLL_REQUEST_RETRY_DELAY_MS = 1500;
+  const MAX_PROMPT_LENGTH = 400;
+  const PROMPT_NOT_ALLOWED_MSG = "Those instructions aren't allowed.";
   const IS_DEV = false; //TODO: REMEMBER TO SWITCH ONCE NOT ON DEV FOR FUCK SAKE
   const DEFAULT_BACKEND = IS_DEV
     ? 'http://localhost:8000'
@@ -58,6 +60,49 @@
   function setStatus(text, isError = false) {
     els.status.textContent = text;
     els.status.className = 'status' + (isError ? ' error' : text ? ' success' : '');
+  }
+
+  function getUserPrompt() {
+    return (els.promptInput.value || '').trim();
+  }
+
+  function mapPromptErrorMessage(detail) {
+    const message = typeof detail === 'string' ? detail : JSON.stringify(detail);
+    if (message.indexOf('Prompt not allowed') !== -1) {
+      return PROMPT_NOT_ALLOWED_MSG;
+    }
+    if (message.indexOf('maximum allowed length') !== -1) {
+      return 'Instructions are too long (max ' + MAX_PROMPT_LENGTH + ' characters).';
+    }
+    return message;
+  }
+
+  async function readApiErrorDetail(res) {
+    try {
+      const data = await res.json();
+      if (typeof data.detail === 'string') return data.detail;
+      if (Array.isArray(data.detail)) return JSON.stringify(data.detail);
+      return JSON.stringify(data);
+    } catch (e) {
+      return await res.text();
+    }
+  }
+
+  async function validatePromptInstructions(base, prompt) {
+    if (prompt.length > MAX_PROMPT_LENGTH) {
+      throw new Error('Instructions are too long (max ' + MAX_PROMPT_LENGTH + ' characters).');
+    }
+
+    const validateRes = await fetch(base + '/bf_fl/validate_prompt', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt: prompt }),
+    });
+
+    if (!validateRes.ok) {
+      const detail = await readApiErrorDetail(validateRes);
+      throw new Error(mapPromptErrorMessage(detail));
+    }
   }
 
   //For validating urls
@@ -225,16 +270,43 @@
     if (file) showSelfiePreview(file);
   });
 
-  // Try on: upload → MIC → poll → download
+  els.promptInput.addEventListener('blur', async function () {
+    const prompt = getUserPrompt();
+    if (!prompt) return;
+
+    if (prompt.length > MAX_PROMPT_LENGTH) {
+      setStatus('Instructions are too long (max ' + MAX_PROMPT_LENGTH + ' characters).', true);
+      return;
+    }
+
+    try {
+      const base = await resolveBackend();
+      await validatePromptInstructions(base, prompt);
+    } catch (e) {
+      setStatus(e.message || PROMPT_NOT_ALLOWED_MSG, true);
+    }
+  });
+
+  // Try on: validate → upload → MIC → poll → download
   els.tryOn.addEventListener('click', async function () {
     if (!garmentUrl || !userFile) {
       setStatus('Please select clothing from the page and upload your photo.', true);
       return;
     }
 
-    //resolve backend url
     const base = await resolveBackend();
+    const prompt = getUserPrompt();
     els.tryOn.disabled = true;
+
+    try {
+      setStatus('Checking instructions…');
+      await validatePromptInstructions(base, prompt);
+    } catch (e) {
+      setStatus(e.message || PROMPT_NOT_ALLOWED_MSG, true);
+      els.tryOn.disabled = false;
+      return;
+    }
+
     setStatus('Uploading…');
 
     try {
@@ -266,7 +338,6 @@
       setStatus('Starting try-on…');
 
       // 2) MIC request (garment URL or upload:id + upload:id for selfie)
-      const prompt = (els.promptInput.value || ' ').trim() || ' ';
       const micRes = await fetch(base + '/bf_fl/mic', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -277,8 +348,11 @@
       });
 
       if (!micRes.ok) {
-        const err = await micRes.text();
-        throw new Error('Try-on request failed: ' + (err || micRes.status));
+        const detail = await readApiErrorDetail(micRes);
+        if (micRes.status === 400) {
+          throw new Error(mapPromptErrorMessage(detail));
+        }
+        throw new Error('Try-on request failed: ' + (detail || micRes.status));
       }
 
       const micData = await micRes.json();

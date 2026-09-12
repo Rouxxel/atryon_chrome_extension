@@ -254,6 +254,13 @@ body {
   color: var(--text-muted);
 }
 
+.prompt-hint {
+  margin: 6px 0 0;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--text-muted);
+}
+
 .status {
   margin-top: 12px;
   font-size: 13px;
