@@ -18,6 +18,7 @@ from urllib.parse import urlparse
 
 # Other files imports
 from src.utils.custom_logger import log_handler
+from src.utils.content_metrics import increment_content_metric
 from src.core_specs.configuration.config_loader import config_loader
 from src.core_specs.data.data_loader import data_loader
 from fastapi import HTTPException
@@ -484,6 +485,7 @@ def _enforce_content_policy(sanitized_str: str, endpoint: str | None = None) -> 
             endpoint or "unknown",
             _hash_normalized_prompt_for_log(normalized),
         )
+        increment_content_metric("content_policy_keyword")
         raise HTTPException(status_code=400, detail=_CONTENT_POLICY_REJECT_DETAIL)
 
 
