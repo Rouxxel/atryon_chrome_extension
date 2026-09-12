@@ -13,6 +13,7 @@ This module defines several methods to validate several things.
 # Native imports
 import hashlib
 import re
+import struct
 import unicodedata
 from urllib.parse import urlparse
 
@@ -356,6 +357,127 @@ def validate_file_magic_bytes(file_bytes: bytes, claimed_content_type: str) -> N
                 status_code=400,
                 detail="File content does not match the declared file type.",
             )
+
+
+def detect_image_content_type(file_bytes: bytes) -> str | None:
+    """Detect supported image MIME type from magic bytes, or None if unsupported."""
+    for content_type in MAGIC_BYTES:
+        try:
+            validate_file_magic_bytes(file_bytes, content_type)
+            return content_type
+        except HTTPException:
+            continue
+    return None
+
+
+def _read_png_dimensions(file_bytes: bytes) -> tuple[int, int]:
+    if len(file_bytes) < 24:
+        raise ValueError("PNG too short")
+    return struct.unpack(">II", file_bytes[16:24])
+
+
+def _read_jpeg_dimensions(file_bytes: bytes) -> tuple[int, int]:
+    index = 2
+    while index < len(file_bytes) - 8:
+        if file_bytes[index] != 0xFF:
+            index += 1
+            continue
+        marker = file_bytes[index + 1]
+        if marker in (
+            0xC0, 0xC1, 0xC2, 0xC3, 0xC5, 0xC6, 0xC7,
+            0xC9, 0xCA, 0xCB, 0xCD, 0xCE, 0xCF,
+        ):
+            height = struct.unpack(">H", file_bytes[index + 5 : index + 7])[0]
+            width = struct.unpack(">H", file_bytes[index + 7 : index + 9])[0]
+            return width, height
+        if marker in (0xD0, 0xD1, 0xD2, 0xD3, 0xD4, 0xD5, 0xD6, 0xD7, 0xD8, 0x01):
+            index += 2
+            continue
+        segment_length = struct.unpack(">H", file_bytes[index + 2 : index + 4])[0]
+        index += 2 + segment_length
+    raise ValueError("JPEG SOF not found")
+
+
+def _read_webp_dimensions(file_bytes: bytes) -> tuple[int, int]:
+    if len(file_bytes) < 30:
+        raise ValueError("WebP too short")
+    if file_bytes[12:16] == b"VP8 ":
+        width = struct.unpack("<H", file_bytes[26:28])[0] & 0x3FFF
+        height = struct.unpack("<H", file_bytes[28:30])[0] & 0x3FFF
+        return width, height
+    if file_bytes[12:16] == b"VP8L" and len(file_bytes) >= 25:
+        bits = struct.unpack("<I", file_bytes[21:25])[0]
+        width = (bits & 0x3FFF) + 1
+        height = ((bits >> 14) & 0x3FFF) + 1
+        return width, height
+    raise ValueError("Unsupported WebP format")
+
+
+def validate_upload_image_dimensions(
+    file_bytes: bytes, content_type: str
+) -> None:
+    """
+    Reject images outside configured min/max width and height (per side).
+
+    Uses lightweight header parsing only (no Pillow dependency).
+    """
+    upload_cfg = data_loader.get("file_upload", {})
+    min_dim = upload_cfg.get("min_image_dimension", 64)
+    max_dim = upload_cfg.get("max_image_dimension", 4096)
+
+    try:
+        if content_type == "image/png":
+            width, height = _read_png_dimensions(file_bytes)
+        elif content_type == "image/jpeg":
+            width, height = _read_jpeg_dimensions(file_bytes)
+        elif content_type == "image/webp":
+            width, height = _read_webp_dimensions(file_bytes)
+        else:
+            return
+    except ValueError:
+        log_handler.warning(
+            "[validators] reason=upload_invalid_dimensions content_type=%s",
+            content_type,
+        )
+        raise HTTPException(
+            status_code=400,
+            detail="Image dimensions could not be validated.",
+        )
+
+    if width < min_dim or height < min_dim or width > max_dim or height > max_dim:
+        log_handler.warning(
+            "[validators] reason=upload_dimension_out_of_range width=%s height=%s "
+            "min=%s max=%s",
+            width,
+            height,
+            min_dim,
+            max_dim,
+        )
+        raise HTTPException(
+            status_code=400,
+            detail="Image dimensions are outside the allowed range.",
+        )
+
+
+def validate_upload_file_bytes(file_bytes: bytes, content_type: str | None) -> str:
+    """
+    Validate upload bytes (size floor, magic bytes, dimensions) and return resolved MIME type.
+    """
+    upload_cfg = data_loader.get("file_upload", {})
+    min_bytes = upload_cfg.get("min_upload_bytes", 100)
+    if len(file_bytes) < min_bytes:
+        log_handler.warning("[validators] reason=upload_too_small size=%s", len(file_bytes))
+        raise HTTPException(status_code=400, detail="File is too small to be a valid image.")
+
+    resolved_type = (content_type or "").strip().lower()
+    if not resolved_type or resolved_type not in MAGIC_BYTES:
+        resolved_type = detect_image_content_type(file_bytes)
+    if not resolved_type:
+        raise HTTPException(status_code=400, detail="Unsupported file type.")
+
+    validate_file_magic_bytes(file_bytes, resolved_type)
+    validate_upload_image_dimensions(file_bytes, resolved_type)
+    return resolved_type
 
 
 # Content-policy blocklists live in general_data.json only (banned_keywords and optional
