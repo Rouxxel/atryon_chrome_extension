@@ -356,7 +356,87 @@ def validate_file_magic_bytes(file_bytes: bytes, claimed_content_type: str) -> N
             )
 
 
-def validate_prompt_safe(prompt: str, max_length: int) -> str:
+_BF_CFG = data_loader["image_ai_providers"]["black_forest"]
+_ALLOWED_PROMPT_CONTROL = {"\n", "\r", "\t"}
+_LEETSPEAK_MAP = str.maketrans(
+    {
+        "0": "o",
+        "1": "i",
+        "3": "e",
+        "4": "a",
+        "5": "s",
+        "7": "t",
+        "@": "a",
+        "$": "s",
+    }
+)
+
+
+def _sanitize_prompt_text(prompt: str) -> str:
+    """Strip control chars and normalize whitespace; may return an empty string."""
+    sanitized = []
+    for ch in prompt:
+        if ch == " ":
+            sanitized.append(ch)
+        elif ch in _ALLOWED_PROMPT_CONTROL:
+            sanitized.append(ch)
+        elif unicodedata.category(ch).startswith("C"):
+            continue
+        else:
+            sanitized.append(ch)
+    sanitized_str = re.sub(r"\s+", " ", "".join(sanitized)).strip()
+    return sanitized_str
+
+
+def _normalize_prompt_for_policy_check(text: str) -> str:
+    """Normalize prompt text for content-policy keyword matching."""
+    nfkd = unicodedata.normalize("NFKD", text)
+    without_marks = "".join(c for c in nfkd if not unicodedata.combining(c))
+    normalized = without_marks.translate(_LEETSPEAK_MAP).lower()
+    return re.sub(r"\s+", " ", normalized).strip()
+
+
+def check_banned_keywords(normalized_text: str, banned_list: list[str]) -> bool:
+    """
+    Return True if normalized_text matches any banned keyword or phrase.
+
+    Single-word terms use word-boundary matching. Multi-word phrases use
+    substring matching after normalization.
+    """
+    if not normalized_text or not banned_list:
+        return False
+
+    for term in banned_list:
+        if not term or not str(term).strip():
+            continue
+        term_norm = _normalize_prompt_for_policy_check(str(term))
+        if not term_norm:
+            continue
+        if " " in term_norm:
+            if term_norm in normalized_text:
+                return True
+        elif re.search(rf"\b{re.escape(term_norm)}\b", normalized_text):
+            return True
+    return False
+
+
+def _enforce_content_policy(sanitized_str: str) -> None:
+    """Raise HTTP 400 when content policy is enabled and a banned keyword matches."""
+    if not sanitized_str:
+        return
+
+    policy_enabled = _BF_CFG.get("content_policy_enabled", False)
+    banned_keywords = _BF_CFG.get("banned_keywords") or []
+    if not policy_enabled or not banned_keywords:
+        return
+
+    normalized = _normalize_prompt_for_policy_check(sanitized_str)
+    if check_banned_keywords(normalized, banned_keywords):
+        log_handler.warning("[validators] Prompt rejected: content policy violation")
+        raise HTTPException(status_code=400, detail="Prompt not allowed.")
+
+
+def validate_prompt_safe(prompt: str, max_length: int, allow_empty: bool = False) -> str:
     """
     Sanitize and validate a user-submitted prompt.
 
@@ -366,47 +446,31 @@ def validate_prompt_safe(prompt: str, max_length: int) -> str:
          tab (U+0009), and space (U+0020).
       2. Collapse consecutive whitespace into a single space.
       3. Strip leading/trailing whitespace.
-      4. Reject empty prompts with HTTP 400.
-      5. Reject prompts exceeding max_length with HTTP 400.
+      4. Reject empty prompts with HTTP 400 (unless allow_empty is True).
+      5. Reject banned keywords when content policy is enabled.
+      6. Reject prompts exceeding max_length with HTTP 400.
 
     Args:
         prompt: The raw prompt string from the user.
         max_length: Maximum allowed character length after sanitization.
+        allow_empty: When True, whitespace-only prompts return "" without error.
 
     Returns:
         The sanitized prompt string.
 
     Raises:
-        HTTPException: 400 if prompt is empty or exceeds max length.
+        HTTPException: 400 if prompt is empty, blocked, or exceeds max length.
     """
-    # Preserve these characters even though they are in Unicode category C
-    ALLOWED_CONTROL = {"\n", "\r", "\t"}
+    sanitized_str = _sanitize_prompt_text(prompt)
 
-    # Step 1: Remove null bytes and control characters (Unicode category C)
-    sanitized = []
-    for ch in prompt:
-        if ch == " ":
-            sanitized.append(ch)
-        elif ch in ALLOWED_CONTROL:
-            sanitized.append(ch)
-        elif unicodedata.category(ch).startswith("C"):
-            continue  # Remove control characters
-        else:
-            sanitized.append(ch)
-    sanitized_str = "".join(sanitized)
-
-    # Step 2: Collapse consecutive whitespace into a single space
-    sanitized_str = re.sub(r"\s+", " ", sanitized_str)
-
-    # Step 3: Strip leading and trailing whitespace
-    sanitized_str = sanitized_str.strip()
-
-    # Step 4: Reject empty prompts
     if not sanitized_str:
+        if allow_empty:
+            return ""
         log_handler.warning("[validators] Prompt rejected: empty after sanitization")
         raise HTTPException(status_code=400, detail="Prompt must not be empty.")
 
-    # Step 5: Reject prompts exceeding configured max length
+    _enforce_content_policy(sanitized_str)
+
     if len(sanitized_str) > max_length:
         log_handler.warning(
             "[validators] Prompt rejected: exceeds maximum allowed length"
@@ -415,8 +479,12 @@ def validate_prompt_safe(prompt: str, max_length: int) -> str:
             status_code=400, detail="Prompt exceeds the maximum allowed length."
         )
 
-    # Step 6: Return sanitized string for downstream use
     return sanitized_str
+
+
+def validate_prompt_safe_for_mic(prompt: str, max_length: int) -> str:
+    """Validate MIC user instructions; optional whitespace-only prompts are allowed."""
+    return validate_prompt_safe(prompt, max_length, allow_empty=True)
 
 
 def validate_download_url_allowed(url: str) -> None:

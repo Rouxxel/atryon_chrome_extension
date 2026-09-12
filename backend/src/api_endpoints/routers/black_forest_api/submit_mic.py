@@ -25,7 +25,7 @@ from pydantic import BaseModel, Field
 from src.utils.custom_logger import log_handler
 from src.utils.limiter import limiter as SlowLimiter
 from src.utils.image_preprocessing import normalize_reference_images
-from src.utils.validators import validate_prompt_safe
+from src.utils.validators import validate_prompt_safe_for_mic
 from src.core_specs.configuration.config_loader import config_loader
 from src.core_specs.data.data_loader import data_loader
 
@@ -108,8 +108,8 @@ async def submit_mic(request: Request, body: SubmitMicBody):
     # Normalize reference images (URLs passed through, base64 accepted)
     normalized = normalize_reference_images(body.images)
 
-    # Sanitize prompt (strip control chars, enforce max length)
-    sanitized_prompt = validate_prompt_safe(
+    # Sanitize prompt; optional extra instructions may be whitespace-only
+    sanitized_prompt = validate_prompt_safe_for_mic(
         body.prompt, BF_CFG.get("max_prompt_length", 400)
     )
 
