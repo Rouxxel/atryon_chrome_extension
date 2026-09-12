@@ -19,6 +19,7 @@ from .submit_tti import router as submit_tti_router
 from .submit_idwm import router as submit_idwm_router
 from .polling_requests import router as polling_router
 from .download_requests import router as download_router
+from .validate_prompt import router as validate_prompt_router
 
 """ROUTER AGGREGATION-----------------------------------------------------------"""
 router = APIRouter()
@@ -27,3 +28,4 @@ router.include_router(submit_tti_router)
 router.include_router(submit_idwm_router)
 router.include_router(polling_router)
 router.include_router(download_router)
+router.include_router(validate_prompt_router)
