@@ -52,6 +52,22 @@ Atryon is a **virtual try-on** tool, not a general image generator.
 
 Operators maintain blocklists in `backend/src/core_specs/data/general_data.json` (`banned_keywords` and optional split lists). Do not put example slurs in public documentation.
 
+### Known gaps (v1)
+
+The validation system is layered but **not comprehensive**. Be aware of these limits:
+
+| Gap | What it means |
+|-----|----------------|
+| **Text-only keyword filter** | Only the optional instructions field (and TTI/IDWM prompts) are checked. Abuse in images is not caught by keywords. |
+| **No image content scanning** | Garment and selfie uploads are validated for type, size, and dimensions — not for hate symbols, nudity, or other visual policy violations. |
+| **Keyword evasion** | Obfuscation, misspellings, coded language, non-English text, or terms not on the blocklist may slip through until BFL rejects them (if at all). |
+| **BFL may still be called** | If text passes the keyword filter, a Black Forest request is submitted; provider moderation runs afterward and may still fail (generic error to the client). Some API cost can occur before rejection. |
+| **Extension checks are UX only** | The side panel can pre-validate instructions for faster feedback, but anyone calling the API directly must still hit the same backend rules on MIC/TTI/IDWM. |
+| **Rate limits throttle, not judge** | Per-minute limits reduce abuse volume; they do not detect harmful content. |
+| **No external moderation API** | There is no third-party text or vision classifier in v1 (e.g. OpenAI moderation, Perspective). |
+
+For operator detail and future mitigation options, see [backend/notes/image_safety_scope.md](backend/notes/image_safety_scope.md) and [backend/README.md#content-safety](backend/README.md#content-safety).
+
 ## Docs
 
 - **Extension:** [chr_exten/README.md](chr_exten/README.md) — flow, backend URL, content safety (client), loading in Chrome.
