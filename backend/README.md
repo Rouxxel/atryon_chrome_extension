@@ -115,6 +115,17 @@ Flow: **submit** → **poll** until `status == "Ready"` → use **`result['sampl
 - **`src/core_specs/configuration/config_file.json`** – Backend config: endpoints, rate limits, logging, network.
 - **`src/core_specs/data/general_data.json`** – Data and provider config: `file_upload` (limits, TTL), BFL `flux2` and `flux1_fill` (models, defaults, prompt prefixes).
 
+## Black Forest safety (`safety_tolerance`)
+
+All BFL submit endpoints (MIC, TTI, IDWM) send `safety_tolerance` from `general_data.json`:
+
+- **FLUX.2** (MIC, TTI): `image_ai_providers.black_forest.flux2.safety_tolerance` (default `2`)
+- **FLUX.1 Fill** (IDWM): `image_ai_providers.black_forest.flux1_fill.safety_tolerance` (default `2`)
+
+Optional clamps per model block: `safety_tolerance_min` / `safety_tolerance_max` (default range **0–6**, per [BFL docs](https://docs.bfl.ai/)).
+
+Provider-side moderation failures are logged server-side (with `polling_url` / task id when available) and returned to clients as a generic **"Request could not be completed."** message. In-process counters (`content_policy_keyword`, `bfl_submit_*`, `bfl_poll_*`) are logged on each event for lightweight monitoring.
+
 Environment (`.env` / `.env.local`):
 
 - **`BFL_API_KEY`** – Required for all BFL endpoints.
