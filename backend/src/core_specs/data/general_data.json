@@ -7,7 +7,7 @@
         "max_upload_bytes": 10485760,
         "min_upload_bytes": 100,
         "max_files_per_upload": 4,
-        "allowed_upload_content_types": ["image/jpeg", "image/png", "image/webp"],
+        "allowed_upload_content_types": ["image/jpeg", "image/png", "image/webp","image/jpg","image/png"],
         "min_image_dimension": 64,
         "max_image_dimension": 4096,
         "upload_temp_ttl_seconds": 400
