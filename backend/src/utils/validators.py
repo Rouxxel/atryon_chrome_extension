@@ -11,6 +11,8 @@ This module defines several methods to validate several things.
 """
 
 # Native imports
+import base64
+import binascii
 import hashlib
 import re
 import struct
@@ -368,6 +370,48 @@ def detect_image_content_type(file_bytes: bytes) -> str | None:
         except HTTPException:
             continue
     return None
+
+
+def normalize_and_validate_base64_image(value: str) -> str:
+    """
+    Validate a raw or data-URI base64 image string for BFL payloads.
+
+    Rejects file paths and other non-base64 strings that were previously
+    passed through and rejected later by BFL as corrupted image input.
+    """
+    raw = value.strip()
+    if not raw:
+        raise HTTPException(status_code=400, detail="Empty image data.")
+
+    if raw.startswith("data:") and "," in raw:
+        raw = raw.split(",", 1)[1].strip()
+
+    lowered = raw.lower()
+    if (
+        "/" in raw
+        or "\\" in raw
+        or lowered.endswith((".png", ".jpg", ".jpeg", ".webp", ".gif"))
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail="Image reference must be a URL, upload:id, or base64-encoded image data.",
+        )
+
+    try:
+        decoded = base64.b64decode(raw, validate=True)
+    except (binascii.Error, ValueError):
+        raise HTTPException(
+            status_code=400,
+            detail="Image reference must be a URL, upload:id, or valid base64-encoded image data.",
+        )
+
+    if detect_image_content_type(decoded) is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Image could not be processed. Try another clothing or photo file.",
+        )
+
+    return raw
 
 
 def _read_png_dimensions(file_bytes: bytes) -> tuple[int, int]:
