@@ -26,6 +26,7 @@ from src.core_specs.configuration.config_loader import config_loader
 from src.core_specs.data.data_loader import data_loader
 from fastapi import HTTPException
 
+
 def validate_email_format(email: str) -> bool:
     """
     Validate an email address.
@@ -78,6 +79,7 @@ def validate_email_format(email: str) -> bool:
         raise HTTPException(status_code=400, detail=message)
 
     log_handler.debug(f"[validators] Email '{email}' is valid, proceeding")
+
 
 def validate_password_format(password: str):
     """
@@ -145,6 +147,7 @@ def validate_uuid_format(uuid_str: str):
     )
     if not re.fullmatch(uuid_regex, uuid_str.lower()):  # RFC 4122 standard
         raise HTTPException(status_code=400, detail="User ID format is invalid.")
+
 
 def is_url(value: str) -> bool:
     return value.startswith(("http://", "https://"))
@@ -428,8 +431,19 @@ def _read_jpeg_dimensions(file_bytes: bytes) -> tuple[int, int]:
             continue
         marker = file_bytes[index + 1]
         if marker in (
-            0xC0, 0xC1, 0xC2, 0xC3, 0xC5, 0xC6, 0xC7,
-            0xC9, 0xCA, 0xCB, 0xCD, 0xCE, 0xCF,
+            0xC0,
+            0xC1,
+            0xC2,
+            0xC3,
+            0xC5,
+            0xC6,
+            0xC7,
+            0xC9,
+            0xCA,
+            0xCB,
+            0xCD,
+            0xCE,
+            0xCF,
         ):
             height = struct.unpack(">H", file_bytes[index + 5 : index + 7])[0]
             width = struct.unpack(">H", file_bytes[index + 7 : index + 9])[0]
@@ -457,9 +471,7 @@ def _read_webp_dimensions(file_bytes: bytes) -> tuple[int, int]:
     raise ValueError("Unsupported WebP format")
 
 
-def validate_upload_image_dimensions(
-    file_bytes: bytes, content_type: str
-) -> None:
+def validate_upload_image_dimensions(file_bytes: bytes, content_type: str) -> None:
     """
     Reject images outside configured min/max width and height (per side).
 
@@ -510,8 +522,12 @@ def validate_upload_file_bytes(file_bytes: bytes, content_type: str | None) -> s
     upload_cfg = data_loader.get("file_upload", {})
     min_bytes = upload_cfg.get("min_upload_bytes", 100)
     if len(file_bytes) < min_bytes:
-        log_handler.warning("[validators] reason=upload_too_small size=%s", len(file_bytes))
-        raise HTTPException(status_code=400, detail="File is too small to be a valid image.")
+        log_handler.warning(
+            "[validators] reason=upload_too_small size=%s", len(file_bytes)
+        )
+        raise HTTPException(
+            status_code=400, detail="File is too small to be a valid image."
+        )
 
     resolved_type = (content_type or "").strip().lower()
     if not resolved_type or resolved_type not in MAGIC_BYTES:
@@ -714,9 +730,7 @@ def validate_prompt_safe_for_mic(
     prompt: str, max_length: int, endpoint: str | None = "MIC"
 ) -> str:
     """Validate MIC user instructions; optional whitespace-only prompts are allowed."""
-    return validate_prompt_safe(
-        prompt, max_length, allow_empty=True, endpoint=endpoint
-    )
+    return validate_prompt_safe(prompt, max_length, allow_empty=True, endpoint=endpoint)
 
 
 def validate_download_url_allowed(url: str) -> None:

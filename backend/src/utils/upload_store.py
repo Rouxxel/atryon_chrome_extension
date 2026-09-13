@@ -32,6 +32,7 @@ _UPLOAD_ID_RE = re.compile(
     re.IGNORECASE,
 )
 
+
 # Config from general_data (file_upload)
 def _upload_config():
     return data_loader.get("file_upload", {})

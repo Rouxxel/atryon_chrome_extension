@@ -19,16 +19,17 @@ from urllib.parse import quote, unquote, urlparse, urlsplit, urlunsplit
 
 # Third-party imports
 import httpx
-from fastapi import APIRouter, Request, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
+
+from src.core_specs.configuration.config_loader import config_loader
+from src.core_specs.data.data_loader import data_loader
 
 # Other files imports
 from src.utils.custom_logger import log_handler
 from src.utils.limiter import limiter as SlowLimiter
 from src.utils.validators import validate_download_url_allowed
-from src.core_specs.configuration.config_loader import config_loader
-from src.core_specs.data.data_loader import data_loader
 
 """VARIABLES-----------------------------------------------------------"""
 BF_CFG = data_loader["image_ai_providers"]["black_forest"]

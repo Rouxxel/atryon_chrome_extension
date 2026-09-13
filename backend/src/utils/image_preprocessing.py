@@ -35,6 +35,7 @@ from fastapi import HTTPException
 # Define a strictly controlled base directory for your images
 IMAGE_SAFE_ZONE = Path("data/uploads").resolve()
 
+
 def image_to_base64(image_path: str) -> str:
     """
     Convert a local image file to a base64-encoded string with path validation.

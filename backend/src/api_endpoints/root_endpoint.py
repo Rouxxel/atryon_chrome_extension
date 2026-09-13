@@ -15,10 +15,11 @@ does not perform any other operation.
 # Third-party imports
 from fastapi import APIRouter, Request
 
+from src.core_specs.configuration.config_loader import config_loader
+
 # Other files imports
 from src.utils.custom_logger import log_handler
 from src.utils.limiter import limiter as SlowLimiter
-from src.core_specs.configuration.config_loader import config_loader
 
 """API ROUTER-----------------------------------------------------------"""
 # Get API router

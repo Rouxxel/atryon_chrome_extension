@@ -19,6 +19,7 @@ from src.utils.custom_logger import log_handler
 from src.core_specs.configuration.config_loader import config_loader
 from src.core_specs.data.data_loader import data_loader
 
+
 def validate_startup_config() -> None:
     """
     Validate critical startup configuration.

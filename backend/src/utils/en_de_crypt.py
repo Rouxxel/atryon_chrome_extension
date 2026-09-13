@@ -56,6 +56,8 @@ except Exception as e:
     raise
 
 """SINGLETON METHODS -----------------------------------------------------"""
+
+
 def encrypt_in(message) -> str:
     """
     Encrypt any data (str, int, float, bool, dict, list, etc.) using the loaded public key.

@@ -1,6 +1,7 @@
 import os
 import shutil
 
+
 def remove_folders(root_dir, folders_to_remove=None):
     if folders_to_remove is None:
         folders_to_remove = ["__pycache__", "logs"]  # Folders to delete
@@ -14,6 +15,7 @@ def remove_folders(root_dir, folders_to_remove=None):
                     print(f"Deleted: {folder_path}")
                 except Exception as e:
                     print(f"Failed to delete {folder_path}: {e}")
+
 
 if __name__ == "__main__":
     root_folder = os.getcwd()  # Current folder
