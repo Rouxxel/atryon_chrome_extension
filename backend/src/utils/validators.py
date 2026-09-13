@@ -11,15 +11,23 @@ This module defines several methods to validate several things.
 """
 
 # Native imports
+import base64
+import binascii
+import hashlib
 import re
+import struct
 import unicodedata
 from urllib.parse import urlparse
 
-# Other files imports
-from src.utils.custom_logger import log_handler
+from fastapi import HTTPException
+
 from src.core_specs.configuration.config_loader import config_loader
 from src.core_specs.data.data_loader import data_loader
-from fastapi import HTTPException
+from src.utils.content_metrics import increment_content_metric
+
+# Other files imports
+from src.utils.custom_logger import log_handler
+
 
 def validate_email_format(email: str) -> bool:
     """
@@ -73,6 +81,7 @@ def validate_email_format(email: str) -> bool:
         raise HTTPException(status_code=400, detail=message)
 
     log_handler.debug(f"[validators] Email '{email}' is valid, proceeding")
+
 
 def validate_password_format(password: str):
     """
@@ -141,6 +150,7 @@ def validate_uuid_format(uuid_str: str):
     if not re.fullmatch(uuid_regex, uuid_str.lower()):  # RFC 4122 standard
         raise HTTPException(status_code=400, detail="User ID format is invalid.")
 
+
 def is_url(value: str) -> bool:
     return value.startswith(("http://", "https://"))
 
@@ -159,12 +169,7 @@ def _is_private_host(host: str) -> bool:
         return ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved
     except ValueError:
         pass
-    if (
-        host.startswith("127.")
-        or host.startswith("10.")
-        or host.startswith("192.168.")
-        or host.startswith("169.254.")
-    ):
+    if host.startswith(("127.", "10.", "192.168.", "169.254.")):
         return True
     if host.startswith("172."):
         parts = host.split(".")
@@ -356,7 +361,317 @@ def validate_file_magic_bytes(file_bytes: bytes, claimed_content_type: str) -> N
             )
 
 
-def validate_prompt_safe(prompt: str, max_length: int) -> str:
+def detect_image_content_type(file_bytes: bytes) -> str | None:
+    """Detect supported image MIME type from magic bytes, or None if unsupported."""
+    for content_type in MAGIC_BYTES:
+        try:
+            validate_file_magic_bytes(file_bytes, content_type)
+            return content_type
+        except HTTPException:
+            continue
+    return None
+
+
+def normalize_and_validate_base64_image(value: str) -> str:
+    """
+    Validate a raw or data-URI base64 image string for BFL payloads.
+
+    Rejects file paths and other non-base64 strings that were previously
+    passed through and rejected later by BFL as corrupted image input.
+    """
+    raw = value.strip()
+    if not raw:
+        raise HTTPException(status_code=400, detail="Empty image data.")
+
+    if raw.startswith("data:") and "," in raw:
+        raw = raw.split(",", 1)[1].strip()
+
+    lowered = raw.lower()
+    if (
+        "/" in raw
+        or "\\" in raw
+        or lowered.endswith((".png", ".jpg", ".jpeg", ".webp", ".gif"))
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail="Image reference must be a URL, upload:id, or base64-encoded image data.",
+        )
+
+    try:
+        decoded = base64.b64decode(raw, validate=True)
+    except (binascii.Error, ValueError):
+        raise HTTPException(
+            status_code=400,
+            detail="Image reference must be a URL, upload:id, or valid base64-encoded image data.",
+        )
+
+    if detect_image_content_type(decoded) is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Image could not be processed. Try another clothing or photo file.",
+        )
+
+    return raw
+
+
+def _read_png_dimensions(file_bytes: bytes) -> tuple[int, int]:
+    if len(file_bytes) < 24:
+        raise ValueError("PNG too short")
+    return struct.unpack(">II", file_bytes[16:24])
+
+
+def _read_jpeg_dimensions(file_bytes: bytes) -> tuple[int, int]:
+    index = 2
+    while index < len(file_bytes) - 8:
+        if file_bytes[index] != 0xFF:
+            index += 1
+            continue
+        marker = file_bytes[index + 1]
+        if marker in (
+            0xC0,
+            0xC1,
+            0xC2,
+            0xC3,
+            0xC5,
+            0xC6,
+            0xC7,
+            0xC9,
+            0xCA,
+            0xCB,
+            0xCD,
+            0xCE,
+            0xCF,
+        ):
+            height = struct.unpack(">H", file_bytes[index + 5 : index + 7])[0]
+            width = struct.unpack(">H", file_bytes[index + 7 : index + 9])[0]
+            return width, height
+        if marker in (0xD0, 0xD1, 0xD2, 0xD3, 0xD4, 0xD5, 0xD6, 0xD7, 0xD8, 0x01):
+            index += 2
+            continue
+        segment_length = struct.unpack(">H", file_bytes[index + 2 : index + 4])[0]
+        index += 2 + segment_length
+    raise ValueError("JPEG SOF not found")
+
+
+def _read_webp_dimensions(file_bytes: bytes) -> tuple[int, int]:
+    if len(file_bytes) < 30:
+        raise ValueError("WebP too short")
+    if file_bytes[12:16] == b"VP8 ":
+        width = struct.unpack("<H", file_bytes[26:28])[0] & 0x3FFF
+        height = struct.unpack("<H", file_bytes[28:30])[0] & 0x3FFF
+        return width, height
+    if file_bytes[12:16] == b"VP8L" and len(file_bytes) >= 25:
+        bits = struct.unpack("<I", file_bytes[21:25])[0]
+        width = (bits & 0x3FFF) + 1
+        height = ((bits >> 14) & 0x3FFF) + 1
+        return width, height
+    raise ValueError("Unsupported WebP format")
+
+
+def validate_upload_image_dimensions(file_bytes: bytes, content_type: str) -> None:
+    """
+    Reject images outside configured min/max width and height (per side).
+
+    Uses lightweight header parsing only (no Pillow dependency).
+    """
+    upload_cfg = data_loader.get("file_upload", {})
+    min_dim = upload_cfg.get("min_image_dimension", 64)
+    max_dim = upload_cfg.get("max_image_dimension", 4096)
+
+    try:
+        if content_type == "image/png":
+            width, height = _read_png_dimensions(file_bytes)
+        elif content_type == "image/jpeg":
+            width, height = _read_jpeg_dimensions(file_bytes)
+        elif content_type == "image/webp":
+            width, height = _read_webp_dimensions(file_bytes)
+        else:
+            return
+    except ValueError:
+        log_handler.warning(
+            "[validators] reason=upload_invalid_dimensions content_type=%s",
+            content_type,
+        )
+        raise HTTPException(
+            status_code=400,
+            detail="Image dimensions could not be validated.",
+        )
+
+    if width < min_dim or height < min_dim or width > max_dim or height > max_dim:
+        log_handler.warning(
+            "[validators] reason=upload_dimension_out_of_range width=%s height=%s "
+            "min=%s max=%s",
+            width,
+            height,
+            min_dim,
+            max_dim,
+        )
+        raise HTTPException(
+            status_code=400,
+            detail="Image dimensions are outside the allowed range.",
+        )
+
+
+def validate_upload_file_bytes(file_bytes: bytes, content_type: str | None) -> str:
+    """
+    Validate upload bytes (size floor, magic bytes, dimensions) and return resolved MIME type.
+    """
+    upload_cfg = data_loader.get("file_upload", {})
+    min_bytes = upload_cfg.get("min_upload_bytes", 100)
+    if len(file_bytes) < min_bytes:
+        log_handler.warning(
+            "[validators] reason=upload_too_small size=%s", len(file_bytes)
+        )
+        raise HTTPException(
+            status_code=400, detail="File is too small to be a valid image."
+        )
+
+    resolved_type = (content_type or "").strip().lower()
+    if not resolved_type or resolved_type not in MAGIC_BYTES:
+        resolved_type = detect_image_content_type(file_bytes)
+    if not resolved_type:
+        raise HTTPException(status_code=400, detail="Unsupported file type.")
+
+    validate_file_magic_bytes(file_bytes, resolved_type)
+    validate_upload_image_dimensions(file_bytes, resolved_type)
+    return resolved_type
+
+
+# Content-policy blocklists live in general_data.json only (banned_keywords and optional
+# banned_keywords_hate / banned_keywords_explicit). Update lists there; do not echo
+# terms in logs, README examples, or commit messages.
+_BF_CFG = data_loader["image_ai_providers"]["black_forest"]
+_ALLOWED_PROMPT_CONTROL = {"\n", "\r", "\t"}
+_CONTENT_POLICY_REJECT_DETAIL = "Prompt not allowed."
+_PROMPT_EMPTY_DETAIL = "Prompt must not be empty."
+_PROMPT_LENGTH_DETAIL = "Prompt exceeds the maximum allowed length."
+_LEETSPEAK_MAP = str.maketrans(
+    {
+        "0": "o",
+        "1": "i",
+        "3": "e",
+        "4": "a",
+        "5": "s",
+        "7": "t",
+        "@": "a",
+        "$": "s",
+    }
+)
+
+
+def _sanitize_prompt_text(prompt: str) -> str:
+    """Strip control chars and normalize whitespace; may return an empty string."""
+    sanitized = []
+    for ch in prompt:
+        if ch == " " or ch in _ALLOWED_PROMPT_CONTROL:
+            sanitized.append(ch)
+        elif unicodedata.category(ch).startswith("C"):
+            continue
+        else:
+            sanitized.append(ch)
+    sanitized_str = re.sub(r"\s+", " ", "".join(sanitized)).strip()
+    return sanitized_str
+
+
+def _normalize_prompt_for_policy_check(text: str) -> str:
+    """Normalize prompt text for content-policy keyword matching."""
+    nfkd = unicodedata.normalize("NFKD", text)
+    without_marks = "".join(c for c in nfkd if not unicodedata.combining(c))
+    normalized = without_marks.translate(_LEETSPEAK_MAP).lower()
+    normalized = re.sub(r"\s+", " ", normalized).strip()
+    return _apply_evasion_normalization(normalized)
+
+
+def _apply_evasion_normalization(text: str) -> str:
+    """
+    Harden matching against common evasion tactics.
+
+    - Remove punctuation between letters (e.g. n.a.z.i -> nazi)
+    - Collapse runs of 3+ repeated characters to a single character
+    """
+    without_punctuation = re.sub(r"[^\w\s]", "", text)
+    collapsed = re.sub(r"(.)\1{2,}", r"\1", without_punctuation)
+    return re.sub(r"\s+", " ", collapsed).strip()
+
+
+def _hash_normalized_prompt_for_log(normalized_text: str) -> str:
+    """Return a SHA-256 hex digest for audit logs without storing raw prompt text."""
+    return hashlib.sha256(normalized_text.encode("utf-8")).hexdigest()
+
+
+def _get_merged_banned_keywords() -> list[str]:
+    """
+    Merge banned keyword lists from config.
+
+    Supports a single `banned_keywords` list plus optional split lists
+    (`banned_keywords_hate`, `banned_keywords_explicit`). Duplicates are removed
+    while preserving order. Maintain lists only in general_data.json.
+    """
+    merged: list[str] = []
+    seen: set[str] = set()
+    for key in ("banned_keywords", "banned_keywords_hate", "banned_keywords_explicit"):
+        for term in _BF_CFG.get(key) or []:
+            if not term or not str(term).strip():
+                continue
+            normalized_term = str(term).strip().lower()
+            if normalized_term in seen:
+                continue
+            seen.add(normalized_term)
+            merged.append(str(term).strip())
+    return merged
+
+
+def check_banned_keywords(normalized_text: str, banned_list: list[str]) -> bool:
+    """
+    Return True if normalized_text matches any banned keyword or phrase.
+
+    Single-word terms use word-boundary matching. Multi-word phrases use
+    substring matching after normalization.
+    """
+    if not normalized_text or not banned_list:
+        return False
+
+    for term in banned_list:
+        if not term or not str(term).strip():
+            continue
+        term_norm = _normalize_prompt_for_policy_check(str(term))
+        if not term_norm:
+            continue
+        if " " in term_norm:
+            if term_norm in normalized_text:
+                return True
+        elif re.search(rf"\b{re.escape(term_norm)}\b", normalized_text):
+            return True
+    return False
+
+
+def _enforce_content_policy(sanitized_str: str, endpoint: str | None = None) -> None:
+    """Raise HTTP 400 when content policy is enabled and a banned keyword matches."""
+    if not sanitized_str:
+        return
+
+    policy_enabled = _BF_CFG.get("content_policy_enabled", False)
+    banned_keywords = _get_merged_banned_keywords()
+    if not policy_enabled or not banned_keywords:
+        return
+
+    normalized = _normalize_prompt_for_policy_check(sanitized_str)
+    if check_banned_keywords(normalized, banned_keywords):
+        log_handler.warning(
+            "[validators] reason=content_policy_keyword endpoint=%s prompt_hash=%s",
+            endpoint or "unknown",
+            _hash_normalized_prompt_for_log(normalized),
+        )
+        increment_content_metric("content_policy_keyword")
+        raise HTTPException(status_code=400, detail=_CONTENT_POLICY_REJECT_DETAIL)
+
+
+def validate_prompt_safe(
+    prompt: str,
+    max_length: int,
+    allow_empty: bool = False,
+    endpoint: str | None = None,
+) -> str:
     """
     Sanitize and validate a user-submitted prompt.
 
@@ -366,57 +681,51 @@ def validate_prompt_safe(prompt: str, max_length: int) -> str:
          tab (U+0009), and space (U+0020).
       2. Collapse consecutive whitespace into a single space.
       3. Strip leading/trailing whitespace.
-      4. Reject empty prompts with HTTP 400.
-      5. Reject prompts exceeding max_length with HTTP 400.
+      4. Reject empty prompts with HTTP 400 (unless allow_empty is True).
+      5. Reject banned keywords when content policy is enabled.
+      6. Reject prompts exceeding max_length with HTTP 400.
 
     Args:
         prompt: The raw prompt string from the user.
         max_length: Maximum allowed character length after sanitization.
+        allow_empty: When True, whitespace-only prompts return "" without error.
 
     Returns:
         The sanitized prompt string.
 
     Raises:
-        HTTPException: 400 if prompt is empty or exceeds max length.
+        HTTPException: 400 if prompt is empty, blocked, or exceeds max length.
     """
-    # Preserve these characters even though they are in Unicode category C
-    ALLOWED_CONTROL = {"\n", "\r", "\t"}
+    sanitized_str = _sanitize_prompt_text(prompt)
 
-    # Step 1: Remove null bytes and control characters (Unicode category C)
-    sanitized = []
-    for ch in prompt:
-        if ch == " ":
-            sanitized.append(ch)
-        elif ch in ALLOWED_CONTROL:
-            sanitized.append(ch)
-        elif unicodedata.category(ch).startswith("C"):
-            continue  # Remove control characters
-        else:
-            sanitized.append(ch)
-    sanitized_str = "".join(sanitized)
-
-    # Step 2: Collapse consecutive whitespace into a single space
-    sanitized_str = re.sub(r"\s+", " ", sanitized_str)
-
-    # Step 3: Strip leading and trailing whitespace
-    sanitized_str = sanitized_str.strip()
-
-    # Step 4: Reject empty prompts
     if not sanitized_str:
-        log_handler.warning("[validators] Prompt rejected: empty after sanitization")
-        raise HTTPException(status_code=400, detail="Prompt must not be empty.")
+        if allow_empty:
+            return ""
+        log_handler.warning(
+            "[validators] reason=prompt_empty endpoint=%s",
+            endpoint or "unknown",
+        )
+        raise HTTPException(status_code=400, detail=_PROMPT_EMPTY_DETAIL)
 
-    # Step 5: Reject prompts exceeding configured max length
+    _enforce_content_policy(sanitized_str, endpoint=endpoint)
+
     if len(sanitized_str) > max_length:
         log_handler.warning(
-            "[validators] Prompt rejected: exceeds maximum allowed length"
+            "[validators] reason=prompt_too_long endpoint=%s length=%s max_length=%s",
+            endpoint or "unknown",
+            len(sanitized_str),
+            max_length,
         )
-        raise HTTPException(
-            status_code=400, detail="Prompt exceeds the maximum allowed length."
-        )
+        raise HTTPException(status_code=400, detail=_PROMPT_LENGTH_DETAIL)
 
-    # Step 6: Return sanitized string for downstream use
     return sanitized_str
+
+
+def validate_prompt_safe_for_mic(
+    prompt: str, max_length: int, endpoint: str | None = "MIC"
+) -> str:
+    """Validate MIC user instructions; optional whitespace-only prompts are allowed."""
+    return validate_prompt_safe(prompt, max_length, allow_empty=True, endpoint=endpoint)
 
 
 def validate_download_url_allowed(url: str) -> None:

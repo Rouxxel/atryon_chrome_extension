@@ -24,31 +24,42 @@ from slowapi.errors import RateLimitExceeded
 load_dotenv()
 
 # Other files imports
-from src.api_endpoints.root_endpoint import router as root_router  # noqa: E402
-from src.api_endpoints.routers.black_forest_api import router as black_forest_router  # noqa: E402
-from src.api_endpoints.routers.upload_files import router as upload_files_router  # noqa: E402
-from src.core_specs.configuration.config_loader import config_loader  # noqa: E402
-from src.core_specs.data.data_loader import data_loader  # noqa: E402
-from src.middleware.cors_config import configure_cors  # noqa: E402
-from src.middleware.security_headers import SecurityHeadersMiddleware  # noqa: E402
-from src.utils.custom_logger import log_handler  # noqa: E402
-from src.utils.limiter import limiter  # noqa: E402
-from src.utils.request_limiter import rate_limit_handler  # noqa: E402
-from src.utils.startup_validator import validate_startup_config  # noqa: E402
-from src.utils.upload_store import cleanup_expired  # noqa: E402
+from src.api_endpoints.root_endpoint import router as root_router
+from src.api_endpoints.routers.black_forest_api import (
+    router as black_forest_router,
+)
+from src.api_endpoints.routers.upload_files import (
+    router as upload_files_router,
+)
+from src.core_specs.configuration.config_loader import config_loader
+from src.core_specs.data.data_loader import data_loader
+from src.middleware.cors_config import configure_cors
+from src.middleware.security_headers import SecurityHeadersMiddleware
+from src.utils.custom_logger import log_handler
+from src.utils.limiter import limiter
+from src.utils.request_limiter import rate_limit_handler
+from src.utils.startup_validator import validate_startup_config
+from src.utils.upload_store import (
+    cleanup_expired,
+    rehydrate_store_from_disk,
+)
 
 """API APP-----------------------------------------------------------"""
+
+
 # Lifespan event manager (startup and shutdown)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     validate_startup_config()
     port = config_loader["network"]["server_port"]
     log_handler.info(f"[main] Atryon server starting on port {port}")
+    rehydrate_store_from_disk()
     removed = cleanup_expired()
     if removed:
         log_handler.info(f"[main] Cleaned up {removed} expired upload(s) on startup")
     yield
     log_handler.info("[main] Atryon server shutting down")
+
 
 # Create FastAPI app
 app = FastAPI(
@@ -65,6 +76,7 @@ app.state.limiter = limiter
 # Add global exception handler for rate limits
 app.add_exception_handler(RateLimitExceeded, rate_limit_handler)
 
+
 # Add global exception handler for unhandled exceptions
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
@@ -75,6 +87,7 @@ async def global_exception_handler(request: Request, exc: Exception):
         f"{type(exc).__name__}: {exc}"
     )
     return JSONResponse(status_code=500, content={"detail": "Internal server error"})
+
 
 # CORS middleware (added before security headers so it is inner in the stack)
 configure_cors(app)

@@ -1,6 +1,8 @@
 # Atryon Chrome Extension
 
-Manifest V3 extension: **virtual try-on** using the Atryon backend (upload → MIC → poll → download). The UI runs as a **side panel** so it stays open while you browse.
+Manifest V3 extension: **virtual try-on** using the Atryon backend. The UI runs as a **side panel** so it stays open while you browse.
+
+**Typical flow:** validate instructions (optional) → upload → MIC → poll → download.
 
 ## Stack
 
@@ -14,22 +16,37 @@ Manifest V3 extension: **virtual try-on** using the Atryon backend (upload → M
 
 2. **Clothing**
    - **Drag and drop** an image onto the clothing placeholder (default shirt), or
-   - Click **"Drop above"** to pick an image from the current page (overlay appears; click a product image).
-   - The chosen image is used as the garment. Use the **×** on the placeholder to clear and pick another.
+   - Click **"Drag and drop above"** to pick an image from the current page (overlay appears; click a product image).
+   - Use **×** on the placeholder to clear and pick another.
 
 3. **Your photo**
-   - Click **"Upload your photo"** and select an image. It is uploaded to the backend and used as the person image.
-   - Use the **×** on the selfie placeholder to clear and choose a different photo.
+   - Click **"Upload your photo"** and select an image (sent to the backend at try-on time).
+   - Use **×** on the selfie placeholder to clear and choose a different photo.
 
-4. Optionally add **extra instructions** in the text area.
+4. **Extra try-on instructions (optional)**
+   - Scoped to clothing try-on only: pose, lighting, fit (not general image generation).
+   - Leave empty for default try-on behavior; the extension sends an empty string (not a placeholder space).
+   - Max **400** characters (`maxlength` on the textarea).
+   - Disallowed text shows **"Those instructions aren't allowed."** or **"Request could not be completed…"** in the status area.
 
-5. Click **Try on** → extension uploads images, calls the backend MIC endpoint with `[garment, "upload:<id>"]`, polls until ready, then shows the result in the panel.
+5. Click **Try on**
+   - Instructions are validated via `POST /bf_fl/validate_prompt` (fast fail, no upload yet).
+   - Then: upload images → MIC → poll until ready → show result.
 
 6. **Result**
-   - The generated image is shown with consistent margins and fit (no stretching).
-   - Use **"Download image"** to save the result locally (e.g. `atryon-result.png`).
+   - Generated image shown in the panel; **Download image** saves locally (e.g. `atryon-result.png`).
+
+**Wake backend:** click the **Atryon** logo or title in the header to send `GET /` to the backend (helps cold starts on hosted deployments). No UI feedback.
 
 Close the panel with Chrome’s side panel close control.
+
+## Content safety (extension)
+
+- The extension does **not** ship the keyword blocklist; all enforcement is on the **backend**.
+- Client-side checks (trim, max length, optional `validate_prompt` call) are **UX only** — bypassing the extension still hits server policy on MIC.
+- Do not duplicate `banned_keywords` in extension JavaScript.
+
+Full policy, config, and operator notes: **[backend/README.md#content-safety](../backend/README.md#content-safety)**.
 
 ## Backend URL
 
@@ -52,10 +69,12 @@ To use another backend (e.g. local):
 
 | File | Purpose |
 |------|---------|
-| `manifest.json` | MV3, permissions, side panel entry (`popup.html`), content script, background |
-| `popup.html` / `popup.css` / `popup.js` | Side panel UI: garment/selfie placeholders, drop zone, try-on flow, result and download |
-| `content.js` | Injected on all pages; handles “select from page” overlay and sends image URL to the panel |
-| `background.js` | Service worker; ensures the extension icon opens the side panel |
+| `manifest.json` | MV3, permissions, side panel (`popup.html`), content script, background |
+| `popup.html` | Side panel layout: garment/selfie, optional instructions, try-on, result |
+| `popup.css` | Styles including prompt hint and header wake button |
+| `popup.js` | Try-on flow, validate/upload/MIC/poll/download, policy error mapping |
+| `content.js` | “Select from page” overlay; sends image URL to the panel |
+| `background.js` | Service worker; opens side panel from extension icon |
 | `assets/` | Logo and default placeholders (tshirt, guy) |
 
-For full backend setup and API details, see **[../backend/README.md](../backend/README.md)**.
+For backend setup, API paths, and content policy, see **[../backend/README.md](../backend/README.md)**.

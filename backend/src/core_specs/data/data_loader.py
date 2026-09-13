@@ -17,6 +17,8 @@ import json
 import sys
 
 """METHOD-----------------------------------------------------------"""
+
+
 def read_data_from_data_json(file_path: str, exit_on_error: bool = True) -> dict:
     """
     Reads data from a JSON data file.
@@ -44,6 +46,7 @@ def read_data_from_data_json(file_path: str, exit_on_error: bool = True) -> dict
             sys.exit(1)
         else:
             return None
+
 
 """VARIABLES-----------------------------------------------------------"""
 # Path to your config JSON file

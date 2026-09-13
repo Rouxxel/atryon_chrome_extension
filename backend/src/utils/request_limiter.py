@@ -17,6 +17,7 @@ from slowapi.errors import RateLimitExceeded
 
 from src.utils.custom_logger import log_handler
 
+
 async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
     """
     Handles requests that exceed the allowed rate limit.

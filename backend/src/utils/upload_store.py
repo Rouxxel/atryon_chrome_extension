@@ -9,23 +9,30 @@
 
 Stores uploaded image files temporarily. Register returns an upload_id; resolve
 reads the file to base64 and deletes it (one-time use). Used by MIC and IDWM
-when client sends "upload:<id>" instead of URL or base64.
+when client sends "upload:<id>" or a bare UUID from /upload/images.
 """
 
 # Native imports
 import base64
 import os
+import re
 import time
 import uuid
 from pathlib import Path
-from typing import Tuple
+
+from fastapi import HTTPException
+
+from src.core_specs.data.data_loader import data_loader
 
 # Other files imports
 from src.utils.custom_logger import log_handler
-from src.core_specs.data.data_loader import data_loader
-from fastapi import HTTPException
 
 UPLOAD_PREFIX = "upload:"
+_UPLOAD_ID_RE = re.compile(
+    r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+    re.IGNORECASE,
+)
+
 
 # Config from general_data (file_upload)
 def _upload_config():
@@ -43,7 +50,7 @@ def _temp_dir() -> Path:
 
 
 # In-memory: upload_id -> (file_path, created_at)
-_store: dict[str, Tuple[str, float]] = {}
+_store: dict[str, tuple[str, float]] = {}
 
 
 def _max_bytes() -> int:
@@ -59,6 +66,40 @@ def _allowed_content_types() -> set:
 
 def _ttl_seconds() -> int:
     return _upload_config().get("upload_temp_ttl_seconds", 600)
+
+
+def _upload_path(upload_id: str) -> Path:
+    return _temp_dir() / f"{upload_id}.bin"
+
+
+def _recover_upload_from_disk(upload_id: str) -> bool:
+    """
+    Rebuild an in-memory entry when the temp file still exists (e.g. after reload).
+    """
+    if not is_bare_upload_id(upload_id):
+        return False
+    path = _upload_path(upload_id)
+    if not path.is_file():
+        return False
+    _store[upload_id] = (str(path), path.stat().st_mtime)
+    log_handler.debug(f"[upload_store] Recovered upload {upload_id} from disk")
+    return True
+
+
+def rehydrate_store_from_disk() -> int:
+    """
+    Scan uploads_temp and rebuild the in-memory index from surviving .bin files.
+    """
+    restored = 0
+    for path in _temp_dir().glob("*.bin"):
+        upload_id = path.stem
+        if upload_id in _store or not is_bare_upload_id(upload_id):
+            continue
+        _store[upload_id] = (str(path), path.stat().st_mtime)
+        restored += 1
+    if restored:
+        log_handler.info(f"[upload_store] Rehydrated {restored} upload(s) from disk")
+    return restored
 
 
 def register(file_bytes: bytes, content_type: str | None) -> str:
@@ -84,7 +125,7 @@ def register(file_bytes: bytes, content_type: str | None) -> str:
             detail=f"Content-Type not allowed. Allowed: {list(allowed)}.",
         )
     upload_id = str(uuid.uuid4())
-    temp_path = _temp_dir() / f"{upload_id}.bin"
+    temp_path = _upload_path(upload_id)
     temp_path.write_bytes(file_bytes)
     _store[upload_id] = (str(temp_path), time.time())
     log_handler.debug(f"[upload_store] Registered upload {upload_id}")
@@ -100,8 +141,18 @@ def resolve(upload_id: str) -> str:
     :return: Base64-encoded image string (raw, no data URI prefix).
     :raises HTTPException: If upload_id unknown or expired.
     """
-    if upload_id not in _store:
-        raise HTTPException(status_code=400, detail="Upload not found or already used.")
+    if upload_id not in _store and not _recover_upload_from_disk(upload_id):
+        log_handler.warning(
+            "[upload_store] Upload resolve failed: id=%s (not registered or already consumed)",
+            upload_id,
+        )
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Upload not found or already used. Upload images again; "
+                "each upload ID works only once per MIC/IDWM request."
+            ),
+        )
     path_str, created = _store[upload_id]
     path = Path(path_str)
     ttl = _ttl_seconds()
@@ -128,20 +179,31 @@ def resolve(upload_id: str) -> str:
     return b64
 
 
+def is_bare_upload_id(value: str) -> bool:
+    """True if value is a bare UUID returned by POST /upload/images."""
+    return isinstance(value, str) and bool(_UPLOAD_ID_RE.match(value.strip()))
+
+
 def is_upload_reference(value: str) -> bool:
-    """True if value is "upload:<uuid>"."""
-    return (
-        isinstance(value, str)
-        and value.startswith(UPLOAD_PREFIX)
-        and len(value) > len(UPLOAD_PREFIX)
-    )
+    """True if value is upload:<uuid> or a bare upload UUID."""
+    if not isinstance(value, str):
+        return False
+    stripped = value.strip()
+    if stripped.startswith(UPLOAD_PREFIX) and len(stripped) > len(UPLOAD_PREFIX):
+        return True
+    return is_bare_upload_id(stripped)
 
 
 def extract_upload_id(value: str) -> str:
-    """Return the UUID part of "upload:<uuid>"."""
-    if not is_upload_reference(value):
-        raise ValueError(f"Not an upload reference: {value!r}")
-    return value[len(UPLOAD_PREFIX) :].strip()
+    """Return the UUID from upload:<uuid> or a bare upload UUID."""
+    if not isinstance(value, str):
+        raise TypeError(f"Not an upload reference: {value!r}")
+    stripped = value.strip()
+    if stripped.startswith(UPLOAD_PREFIX):
+        return stripped[len(UPLOAD_PREFIX) :].strip()
+    if is_bare_upload_id(stripped):
+        return stripped
+    raise ValueError(f"Not an upload reference: {value!r}")
 
 
 def cleanup_expired() -> int:

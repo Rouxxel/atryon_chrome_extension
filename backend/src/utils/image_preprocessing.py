@@ -15,21 +15,29 @@ public URLs (passed through) or base64-encoded strings (e.g. from local files).
 # Native imports
 import base64
 from pathlib import Path
-from typing import List
+
+from fastapi import HTTPException
+
+from src.core_specs.data.data_loader import data_loader
 
 # Other files imports
 from src.utils.custom_logger import log_handler
-from src.utils.validators import is_url, validate_image_url_safe
 from src.utils.upload_store import (
-    is_upload_reference,
     extract_upload_id,
+    is_upload_reference,
+)
+from src.utils.upload_store import (
     resolve as resolve_upload,
 )
-from src.core_specs.data.data_loader import data_loader
-from fastapi import HTTPException
+from src.utils.validators import (
+    is_url,
+    normalize_and_validate_base64_image,
+    validate_image_url_safe,
+)
 
 # Define a strictly controlled base directory for your images
 IMAGE_SAFE_ZONE = Path("data/uploads").resolve()
+
 
 def image_to_base64(image_path: str) -> str:
     """
@@ -59,7 +67,7 @@ def image_to_base64(image_path: str) -> str:
     return encoded
 
 
-def normalize_reference_images(images: List[str]) -> List[str]:
+def normalize_reference_images(images: list[str]) -> list[str]:
     """
     Normalize reference images into BFL-compatible identifiers.
 
@@ -85,7 +93,7 @@ def normalize_reference_images(images: List[str]) -> List[str]:
             detail=f"Number of images must be between {min_n} and {max_n}, got {len(images)}.",
         )
 
-    normalized: List[str] = []
+    normalized: list[str] = []
     for i, img in enumerate(images):
         if is_url(img):
             validate_image_url_safe(img)
@@ -101,7 +109,7 @@ def normalize_reference_images(images: List[str]) -> List[str]:
                 f"[image_preprocessing] Reference image {i + 1}: resolved upload to base64"
             )
         else:
-            normalized.append(img)
+            normalized.append(normalize_and_validate_base64_image(img))
             log_handler.debug(
                 f"[image_preprocessing] Reference image {i + 1}: using base64 data"
             )

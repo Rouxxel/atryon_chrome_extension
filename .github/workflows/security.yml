@@ -62,11 +62,5 @@ jobs:
           vuln-type: "library"
           scanners: "vuln"
 
-  dependency-review:
-    name: Dependency Review
-    runs-on: ubuntu-24.04
-    if: github.event_name == 'pull_request'
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/dependency-review-action@v4
+  # Requires Dependency graph enabled in repo Settings → Security → Code security.
+  # pip-audit above already scans backend/requirements.txt on every run.

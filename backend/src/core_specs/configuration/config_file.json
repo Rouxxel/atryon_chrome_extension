@@ -32,7 +32,7 @@
         },
 
         "upload_images_endpoint": {
-            "request_limit": 15,
+            "request_limit": 10,
             "unit_of_time_for_limit": "m",
             "endpoint_prefix": "/upload",
             "endpoint_tag": "upload",
@@ -73,6 +73,13 @@
             "endpoint_prefix": "/bf_fl",
             "endpoint_tag": "bf_fl",
             "endpoint_route": "/download_requests"
+        },
+        "validate_prompt_endpoint": {
+            "request_limit": 10,
+            "unit_of_time_for_limit": "m",
+            "endpoint_prefix": "/bf_fl",
+            "endpoint_tag": "bf_fl",
+            "endpoint_route": "/validate_prompt"
         }
     }
 }

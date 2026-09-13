@@ -11,10 +11,10 @@ This module initializes a custom logger to handle log messages for the other mod
 """
 
 # Native imports
-import os
-import logging
-import sys
 import datetime
+import logging
+import os
+import sys
 
 # Other files imports
 from src.core_specs.configuration.config_loader import config_loader
@@ -51,7 +51,7 @@ os.makedirs(log_directory, exist_ok=True)
 # Create log file
 log_file = os.path.join(
     log_directory,
-    datetime.datetime.now().strftime(
+    datetime.datetime.now(datetime.UTC).strftime(
         f"{config_loader['logging']['log_file_name']}_%Y-%m-%dT%H-%M-%S.log"
     ),
 )

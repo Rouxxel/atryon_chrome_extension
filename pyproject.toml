@@ -1,0 +1,3 @@
+[tool.ruff.lint.per-file-ignores]
+# load_dotenv() must run before local src imports in main.py
+"backend/main.py" = ["E402"]

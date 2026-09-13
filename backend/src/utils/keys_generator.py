@@ -14,8 +14,8 @@ The parameters used can be tinkered as desired
 """
 
 # Third-party imports
-from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import rsa
 
 # Other files imports
 from src.utils.custom_logger import log_handler

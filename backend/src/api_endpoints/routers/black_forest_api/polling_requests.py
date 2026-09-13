@@ -13,19 +13,25 @@ signed URL for the generated image. SSRF-protected via allowlist; async.
 """
 
 # Native imports
-import os
 import asyncio
+import os
 
 # Third-party imports
 import httpx
-from fastapi import APIRouter, Request, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
+
+from src.core_specs.configuration.config_loader import config_loader
+from src.core_specs.data.data_loader import data_loader
 
 # Other files imports
+from src.utils.bfl_helpers import (
+    BFL_CLIENT_ERROR_DETAIL,
+    handle_bfl_poll_payload,
+    parse_bfl_poll_response,
+)
 from src.utils.custom_logger import log_handler
 from src.utils.limiter import limiter as SlowLimiter
 from src.utils.validators import validate_polling_url_allowed
-from src.core_specs.configuration.config_loader import config_loader
-from src.core_specs.data.data_loader import data_loader
 
 """VARIABLES-----------------------------------------------------------"""
 # Black Forest provider data (for API key env key)
@@ -107,6 +113,17 @@ async def polling_requests(
             )
 
         if resp.status_code != 200:
+            task_payload = parse_bfl_poll_response(resp)
+            if task_payload is not None:
+                log_handler.warning(
+                    "[polling_requests] BFL poll returned task payload on HTTP %s: "
+                    "polling_url=%s status=%s",
+                    resp.status_code,
+                    polling_url,
+                    task_payload.get("status"),
+                )
+                return handle_bfl_poll_payload(polling_url, task_payload)
+
             log_handler.error(
                 "[polling_requests] BFL poll returned non-200 (full response): polling_url=%s attempt=%s status_code=%s body=%s",
                 polling_url,
@@ -123,15 +140,12 @@ async def polling_requests(
                 )
                 await asyncio.sleep(POLLING_RETRY_DELAY_SEC)
                 continue
-            raise HTTPException(
-                status_code=502,
-                detail=f"Black Forest API error: {resp.status_code} - {resp.text}",
-            )
+            raise HTTPException(status_code=502, detail=BFL_CLIENT_ERROR_DETAIL)
 
         data = resp.json()
         log_handler.debug(
             "[polling_requests] Poll result status: %s", data.get("status")
         )
-        return data
+        return handle_bfl_poll_payload(polling_url, data)
 
     raise HTTPException(status_code=502, detail="Polling failed after retries.")
