@@ -21,7 +21,11 @@ import httpx
 from fastapi import APIRouter, Request, HTTPException, Query
 
 # Other files imports
-from src.utils.bfl_helpers import BFL_CLIENT_ERROR_DETAIL, handle_bfl_poll_payload
+from src.utils.bfl_helpers import (
+    BFL_CLIENT_ERROR_DETAIL,
+    handle_bfl_poll_payload,
+    parse_bfl_poll_response,
+)
 from src.utils.custom_logger import log_handler
 from src.utils.limiter import limiter as SlowLimiter
 from src.utils.validators import validate_polling_url_allowed
@@ -108,6 +112,17 @@ async def polling_requests(
             )
 
         if resp.status_code != 200:
+            task_payload = parse_bfl_poll_response(resp)
+            if task_payload is not None:
+                log_handler.warning(
+                    "[polling_requests] BFL poll returned task payload on HTTP %s: "
+                    "polling_url=%s status=%s",
+                    resp.status_code,
+                    polling_url,
+                    task_payload.get("status"),
+                )
+                return handle_bfl_poll_payload(polling_url, task_payload)
+
             log_handler.error(
                 "[polling_requests] BFL poll returned non-200 (full response): polling_url=%s attempt=%s status_code=%s body=%s",
                 polling_url,
