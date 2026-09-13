@@ -66,6 +66,23 @@ def is_likely_bfl_content_rejection(status_code: int, body: str) -> bool:
     return any(hint in lowered for hint in _BFL_CONTENT_REJECTION_HINTS)
 
 
+def parse_bfl_poll_response(resp: httpx.Response) -> dict | None:
+    """
+    Parse a BFL polling HTTP response into a task payload when possible.
+
+    BFL sometimes returns non-200 (e.g. 422) with a JSON body that still contains
+    task fields such as status=Error. Those should be handled as poll results,
+    not as transport failures.
+    """
+    try:
+        data = resp.json()
+    except ValueError:
+        return None
+    if isinstance(data, dict) and data.get("status") is not None:
+        return data
+    return None
+
+
 def is_bfl_task_failure(status: str | None) -> bool:
     """Return True when a polled BFL task reached a terminal failure state."""
     if not status:
@@ -124,15 +141,23 @@ def handle_bfl_poll_payload(polling_url: str, data: dict) -> dict:
     """
     status = data.get("status")
     task_id = data.get("id") or data.get("task_id")
+    details = data.get("details") or {}
+    detail_error = details.get("error") if isinstance(details, dict) else None
 
     if is_bfl_task_failure(status):
         log_handler.warning(
-            "[bfl] reason=bfl_poll_reject polling_url=%s task_id=%s status=%s",
+            "[bfl] reason=bfl_poll_reject polling_url=%s task_id=%s status=%s detail=%s",
             polling_url,
             task_id,
             status,
+            detail_error,
         )
         increment_content_metric("bfl_poll_reject")
+        if detail_error and "image" in str(detail_error).lower():
+            raise HTTPException(
+                status_code=400,
+                detail="Image could not be processed. Try another clothing or photo file.",
+            )
         raise HTTPException(status_code=400, detail=BFL_CLIENT_ERROR_DETAIL)
 
     if status and status.strip().lower() == "ready":
