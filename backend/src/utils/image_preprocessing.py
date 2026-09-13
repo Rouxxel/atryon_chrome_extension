@@ -19,7 +19,11 @@ from typing import List
 
 # Other files imports
 from src.utils.custom_logger import log_handler
-from src.utils.validators import is_url, validate_image_url_safe
+from src.utils.validators import (
+    is_url,
+    validate_image_url_safe,
+    normalize_and_validate_base64_image,
+)
 from src.utils.upload_store import (
     is_upload_reference,
     extract_upload_id,
@@ -101,7 +105,7 @@ def normalize_reference_images(images: List[str]) -> List[str]:
                 f"[image_preprocessing] Reference image {i + 1}: resolved upload to base64"
             )
         else:
-            normalized.append(img)
+            normalized.append(normalize_and_validate_base64_image(img))
             log_handler.debug(
                 f"[image_preprocessing] Reference image {i + 1}: using base64 data"
             )
