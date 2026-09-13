@@ -11,16 +11,20 @@ POST /upload/images: one or more files, returns upload_ids (array).
 Client passes "upload:<uuid>" in images[], image, or mask to MIC/IDWM.
 """
 
+# Native imports
+from typing import Annotated
+
 # Third-party imports
-from fastapi import APIRouter, Request, HTTPException, UploadFile, File
+from fastapi import APIRouter, File, HTTPException, Request, UploadFile
+
+from src.core_specs.configuration.config_loader import config_loader
+from src.core_specs.data.data_loader import data_loader
 
 # Other files imports
 from src.utils.custom_logger import log_handler
 from src.utils.limiter import limiter as SlowLimiter
 from src.utils.upload_store import register
 from src.utils.validators import validate_request_size, validate_upload_file_bytes
-from src.core_specs.configuration.config_loader import config_loader
-from src.core_specs.data.data_loader import data_loader
 
 """VARIABLES-----------------------------------------------------------"""
 FILE_UPLOAD_CFG = data_loader.get("file_upload", {})
@@ -54,7 +58,9 @@ async def _process_file(file: UploadFile) -> str:
 )
 async def upload_images(
     request: Request,
-    files: list[UploadFile] = File(..., description="One or more image files"),
+    files: Annotated[
+        list[UploadFile], File(..., description="One or more image files")
+    ],
 ):
     """
     Upload one or more images. Returns upload_ids to use in MIC/IDWM as "upload:<id>".
@@ -86,7 +92,7 @@ async def upload_images(
             upload_ids.append(uid)
         except HTTPException:
             raise
-        except Exception as e:
+        except OSError as e:
             log_handler.error(f"[upload_images] Upload failed: {e}")
             raise HTTPException(status_code=500, detail="Upload failed.")
     log_handler.info(f"[upload_images] Uploaded {len(upload_ids)} image(s)")

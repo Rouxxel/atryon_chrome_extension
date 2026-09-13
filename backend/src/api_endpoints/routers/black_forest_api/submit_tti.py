@@ -14,20 +14,20 @@ to poll until the task is ready. Async; prompt and dimensions validated.
 
 # Native imports
 import os
-from typing import Optional
 
 # Third-party imports
 import httpx
-from fastapi import APIRouter, Request, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
+
+from src.core_specs.configuration.config_loader import config_loader
+from src.core_specs.data.data_loader import data_loader
+from src.utils.bfl_helpers import get_flux2_safety_tolerance, handle_bfl_submit_response
 
 # Other files imports
 from src.utils.custom_logger import log_handler
 from src.utils.limiter import limiter as SlowLimiter
-from src.utils.bfl_helpers import get_flux2_safety_tolerance, handle_bfl_submit_response
 from src.utils.validators import validate_prompt_safe
-from src.core_specs.configuration.config_loader import config_loader
-from src.core_specs.data.data_loader import data_loader
 
 """VARIABLES-----------------------------------------------------------"""
 # Black Forest provider data (model, dimensions, prompt prefix, etc.)
@@ -69,10 +69,10 @@ class SubmitTtiBody(BaseModel):
         max_length=MAX_PROMPT_LENGTH,
         description="Text prompt (max 4000 chars)",
     )
-    width: Optional[int] = Field(
+    width: int | None = Field(
         None, ge=MIN_DIMENSION, le=MAX_DIMENSION, description="Output width 512–2048"
     )
-    height: Optional[int] = Field(
+    height: int | None = Field(
         None, ge=MIN_DIMENSION, le=MAX_DIMENSION, description="Output height 512–2048"
     )
 

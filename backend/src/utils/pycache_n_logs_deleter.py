@@ -13,7 +13,7 @@ def remove_folders(root_dir, folders_to_remove=None):
                 try:
                     shutil.rmtree(folder_path)
                     print(f"Deleted: {folder_path}")
-                except Exception as e:
+                except OSError as e:
                     print(f"Failed to delete {folder_path}: {e}")
 
 

@@ -6,9 +6,10 @@ Shared helpers for Black Forest Labs API requests and responses.
 import httpx
 from fastapi import HTTPException
 
+from src.utils.content_metrics import increment_content_metric
+
 # Other files imports
 from src.utils.custom_logger import log_handler
-from src.utils.content_metrics import increment_content_metric
 
 BFL_CLIENT_ERROR_DETAIL = "Request could not be completed."
 

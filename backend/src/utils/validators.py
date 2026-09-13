@@ -19,12 +19,14 @@ import struct
 import unicodedata
 from urllib.parse import urlparse
 
-# Other files imports
-from src.utils.custom_logger import log_handler
-from src.utils.content_metrics import increment_content_metric
+from fastapi import HTTPException
+
 from src.core_specs.configuration.config_loader import config_loader
 from src.core_specs.data.data_loader import data_loader
-from fastapi import HTTPException
+from src.utils.content_metrics import increment_content_metric
+
+# Other files imports
+from src.utils.custom_logger import log_handler
 
 
 def validate_email_format(email: str) -> bool:
@@ -167,12 +169,7 @@ def _is_private_host(host: str) -> bool:
         return ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved
     except ValueError:
         pass
-    if (
-        host.startswith("127.")
-        or host.startswith("10.")
-        or host.startswith("192.168.")
-        or host.startswith("169.254.")
-    ):
+    if host.startswith(("127.", "10.", "192.168.", "169.254.")):
         return True
     if host.startswith("172."):
         parts = host.split(".")
@@ -566,9 +563,7 @@ def _sanitize_prompt_text(prompt: str) -> str:
     """Strip control chars and normalize whitespace; may return an empty string."""
     sanitized = []
     for ch in prompt:
-        if ch == " ":
-            sanitized.append(ch)
-        elif ch in _ALLOWED_PROMPT_CONTROL:
+        if ch == " " or ch in _ALLOWED_PROMPT_CONTROL:
             sanitized.append(ch)
         elif unicodedata.category(ch).startswith("C"):
             continue

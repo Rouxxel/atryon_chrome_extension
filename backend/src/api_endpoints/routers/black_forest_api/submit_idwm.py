@@ -16,28 +16,30 @@ polling and download use the same endpoints as MIC and TTI.
 
 # Native imports
 import os
-from typing import Optional
 
 # Third-party imports
 import httpx
-from fastapi import APIRouter, Request, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 
-# Other files imports
-from src.utils.custom_logger import log_handler
-from src.utils.limiter import limiter as SlowLimiter
+from src.core_specs.configuration.config_loader import config_loader
+from src.core_specs.data.data_loader import data_loader
 from src.utils.bfl_helpers import (
     get_flux1_fill_safety_tolerance,
     handle_bfl_submit_response,
 )
-from src.utils.validators import is_url, validate_image_url_safe, validate_prompt_safe
+
+# Other files imports
+from src.utils.custom_logger import log_handler
+from src.utils.limiter import limiter as SlowLimiter
 from src.utils.upload_store import (
-    is_upload_reference,
     extract_upload_id,
+    is_upload_reference,
+)
+from src.utils.upload_store import (
     resolve as resolve_upload,
 )
-from src.core_specs.configuration.config_loader import config_loader
-from src.core_specs.data.data_loader import data_loader
+from src.utils.validators import is_url, validate_image_url_safe, validate_prompt_safe
 
 """VARIABLES-----------------------------------------------------------"""
 # Black Forest provider data (base URL, API key; flux1_fill has its own model and params)
@@ -73,14 +75,14 @@ class SubmitIdwmBody(BaseModel):
     image: str = Field(
         ..., min_length=1, description="Base image: URL or base64-encoded data"
     )
-    mask: Optional[str] = Field(
+    mask: str | None = Field(
         None,
         description="Optional mask: URL or base64. Black=preserve, white=inpaint. Omit for alpha-channel mode.",
     )
-    width: Optional[int] = Field(
+    width: int | None = Field(
         None, ge=MIN_DIMENSION, le=MAX_DIMENSION, description="Output width 512–2048"
     )
-    height: Optional[int] = Field(
+    height: int | None = Field(
         None, ge=MIN_DIMENSION, le=MAX_DIMENSION, description="Output height 512–2048"
     )
 

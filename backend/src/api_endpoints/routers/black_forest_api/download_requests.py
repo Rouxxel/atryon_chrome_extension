@@ -128,40 +128,40 @@ async def _fetch_download_image(url: str) -> Response:
     log_handler.debug("[download_requests] Downloading image from provided URL")
 
     try:
-        async with httpx.AsyncClient(timeout=60.0, follow_redirects=True) as client:
-            async with client.stream(
-                "GET", fetch_url, headers=DOWNLOAD_HEADERS
-            ) as resp:
-                if resp.status_code != 200:
-                    log_handler.warning(
-                        "[download_requests] Image URL returned %s (has_sig=%s)",
-                        resp.status_code,
-                        _has_signature_query(url),
+        async with (
+            httpx.AsyncClient(timeout=60.0, follow_redirects=True) as client,
+            client.stream("GET", fetch_url, headers=DOWNLOAD_HEADERS) as resp,
+        ):
+            if resp.status_code != 200:
+                log_handler.warning(
+                    "[download_requests] Image URL returned %s (has_sig=%s)",
+                    resp.status_code,
+                    _has_signature_query(url),
+                )
+                detail = f"Image URL returned {resp.status_code}."
+                if resp.status_code == 403:
+                    detail = (
+                        "Image URL returned 403. The signed URL may have expired "
+                        "(poll again for a fresh result['sample']), or the URL was altered. "
+                        "For Postman, prefer POST /bf_fl/download_requests with the sample URL in JSON."
                     )
-                    detail = f"Image URL returned {resp.status_code}."
-                    if resp.status_code == 403:
-                        detail = (
-                            "Image URL returned 403. The signed URL may have expired "
-                            "(poll again for a fresh result['sample']), or the URL was altered. "
-                            "For Postman, prefer POST /bf_fl/download_requests with the sample URL in JSON."
-                        )
-                    raise HTTPException(status_code=502, detail=detail)
+                raise HTTPException(status_code=502, detail=detail)
 
-                content_type = resp.headers.get("Content-Type", "image/jpeg")
-                chunks: list[bytes] = []
-                total = 0
-                async for chunk in resp.aiter_bytes(chunk_size=65536):
-                    total += len(chunk)
-                    if total > MAX_DOWNLOAD_BYTES:
-                        log_handler.warning(
-                            f"[download_requests] Download exceeded max size ({MAX_DOWNLOAD_BYTES})"
-                        )
-                        raise HTTPException(
-                            status_code=502,
-                            detail="Image exceeds maximum allowed size.",
-                        )
-                    chunks.append(chunk)
-                body = b"".join(chunks)
+            content_type = resp.headers.get("Content-Type", "image/jpeg")
+            chunks: list[bytes] = []
+            total = 0
+            async for chunk in resp.aiter_bytes(chunk_size=65536):
+                total += len(chunk)
+                if total > MAX_DOWNLOAD_BYTES:
+                    log_handler.warning(
+                        f"[download_requests] Download exceeded max size ({MAX_DOWNLOAD_BYTES})"
+                    )
+                    raise HTTPException(
+                        status_code=502,
+                        detail="Image exceeds maximum allowed size.",
+                    )
+                chunks.append(chunk)
+            body = b"".join(chunks)
     except httpx.RequestError as e:
         log_handler.error(f"[download_requests] Image download failed: {e}")
         raise HTTPException(status_code=502, detail="Failed to fetch image from URL.")

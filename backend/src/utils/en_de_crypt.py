@@ -11,12 +11,12 @@ This utility provides methods to encrypt and decrypt strings
 """
 
 # Native imports
-import os
 import json
-from base64 import b64encode, b64decode
+import os
+from base64 import b64decode, b64encode
 
 # Third-party imports
-from cryptography.hazmat.primitives import serialization, hashes
+from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding
 
 # Other files imports

@@ -19,12 +19,13 @@ import re
 import time
 import uuid
 from pathlib import Path
-from typing import Tuple
+
+from fastapi import HTTPException
+
+from src.core_specs.data.data_loader import data_loader
 
 # Other files imports
 from src.utils.custom_logger import log_handler
-from src.core_specs.data.data_loader import data_loader
-from fastapi import HTTPException
 
 UPLOAD_PREFIX = "upload:"
 _UPLOAD_ID_RE = re.compile(
@@ -49,7 +50,7 @@ def _temp_dir() -> Path:
 
 
 # In-memory: upload_id -> (file_path, created_at)
-_store: dict[str, Tuple[str, float]] = {}
+_store: dict[str, tuple[str, float]] = {}
 
 
 def _max_bytes() -> int:
@@ -196,7 +197,7 @@ def is_upload_reference(value: str) -> bool:
 def extract_upload_id(value: str) -> str:
     """Return the UUID from upload:<uuid> or a bare upload UUID."""
     if not isinstance(value, str):
-        raise ValueError(f"Not an upload reference: {value!r}")
+        raise TypeError(f"Not an upload reference: {value!r}")
     stripped = value.strip()
     if stripped.startswith(UPLOAD_PREFIX):
         return stripped[len(UPLOAD_PREFIX) :].strip()
