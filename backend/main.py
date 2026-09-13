@@ -35,7 +35,7 @@ from src.utils.custom_logger import log_handler  # noqa: E402
 from src.utils.limiter import limiter  # noqa: E402
 from src.utils.request_limiter import rate_limit_handler  # noqa: E402
 from src.utils.startup_validator import validate_startup_config  # noqa: E402
-from src.utils.upload_store import cleanup_expired  # noqa: E402
+from src.utils.upload_store import cleanup_expired, rehydrate_store_from_disk  # noqa: E402
 
 """API APP-----------------------------------------------------------"""
 # Lifespan event manager (startup and shutdown)
@@ -44,6 +44,7 @@ async def lifespan(app: FastAPI):
     validate_startup_config()
     port = config_loader["network"]["server_port"]
     log_handler.info(f"[main] Atryon server starting on port {port}")
+    rehydrate_store_from_disk()
     removed = cleanup_expired()
     if removed:
         log_handler.info(f"[main] Cleaned up {removed} expired upload(s) on startup")
