@@ -74,6 +74,9 @@
     if (message.indexOf('maximum allowed length') !== -1) {
       return 'Instructions are too long (max ' + MAX_PROMPT_LENGTH + ' characters).';
     }
+    if (message.indexOf('Image could not be processed') !== -1) {
+      return message;
+    }
     if (message.indexOf('Request could not be completed') !== -1) {
       return 'Request could not be completed. Please try different instructions or images.';
     }
@@ -89,6 +92,28 @@
     } catch (e) {
       return await res.text();
     }
+  }
+
+  async function garmentAsFile() {
+    if (garmentFile) {
+      return garmentFile;
+    }
+    if (!garmentUrl) {
+      throw new Error('Please select clothing from the page or drop an image file.');
+    }
+    const resolvedUrl = garmentUrl.startsWith('assets/')
+      ? chrome.runtime.getURL(garmentUrl)
+      : garmentUrl;
+    const response = await fetch(resolvedUrl);
+    if (!response.ok) {
+      throw new Error('Could not load clothing image. Try dropping the image file instead.');
+    }
+    const blob = await response.blob();
+    if (!blob.type.startsWith('image/')) {
+      throw new Error('Clothing selection is not a valid image. Try dropping an image file.');
+    }
+    const ext = blob.type === 'image/png' ? 'png' : blob.type === 'image/webp' ? 'webp' : 'jpeg';
+    return new File([blob], 'garment.' + ext, { type: blob.type });
   }
 
   async function validatePromptInstructions(base, prompt) {
@@ -313,11 +338,9 @@
     setStatus('Uploading…');
 
     try {
-      let garmentImage = garmentUrl;
+      const garment = await garmentAsFile();
       const form = new FormData();
-      if (garmentFile) {
-        form.append('files', garmentFile);
-      }
+      form.append('files', garment);
       form.append('files', userFile);
 
       const uploadRes = await fetch(base + '/upload/images', {
@@ -332,15 +355,15 @@
 
       const uploadData = await uploadRes.json();
       const uploadIds = uploadData.upload_ids;
-      if (!uploadIds || uploadIds.length === 0) throw new Error('No upload IDs returned');
-
-      const userUploadId = uploadIds[uploadIds.length - 1];
-      if (garmentFile && uploadIds.length >= 2) {
-        garmentImage = 'upload:' + uploadIds[0];
+      if (!uploadIds || uploadIds.length < 2) {
+        throw new Error('Upload failed: expected garment and selfie upload IDs.');
       }
+
+      const garmentImage = 'upload:' + uploadIds[0];
+      const userUploadId = uploadIds[1];
       setStatus('Starting try-on…');
 
-      // 2) MIC request (garment URL or upload:id + upload:id for selfie)
+      // 2) MIC request (both images as upload:id so BFL receives valid base64)
       const micRes = await fetch(base + '/bf_fl/mic', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
