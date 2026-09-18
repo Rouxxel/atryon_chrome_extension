@@ -160,13 +160,19 @@ def _is_private_host(host: str) -> bool:
     if not host:
         return True
     host = host.lower().strip()
-    if host in ("localhost", "::1", "0.0.0.0"):
+    if host in ("localhost", "::1"):
         return True
     try:
         import ipaddress
 
         ip = ipaddress.ip_address(host)
-        return ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved
+        return (
+            ip.is_unspecified
+            or ip.is_private
+            or ip.is_loopback
+            or ip.is_link_local
+            or ip.is_reserved
+        )
     except ValueError:
         pass
     if host.startswith(("127.", "10.", "192.168.", "169.254.")):
